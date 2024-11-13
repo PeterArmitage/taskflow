@@ -1,0 +1,20 @@
+# Core Requirements
+fastapi==0.100.0
+uvicorn==0.20.0
+sqlalchemy==2.0.19
+psycopg2==2.9.6
+pydantic==2.0.2
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.0
+email-validator==2.0.0
+
+# Additional Requirements
+alembic==1.12.0
+pytest==7.4.2
+pytest-asyncio==0.21.1
+httpx==0.25.0
+python-multipart==0.0.6
+pytest-cov==4.1.0
+SQLAlchemy-Utils==0.41.1
+fastapi-pagination==0.12.12
