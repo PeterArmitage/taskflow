@@ -1,5 +1,4 @@
-// app/(marketing)/features/views/page.tsx
-'use client'; // Add this since we're using client-side components
+'use client';
 
 import { motion } from 'framer-motion';
 import { Button } from '@/app/components/ui/button';
@@ -35,10 +34,9 @@ const viewTypes = [
 			'Organize tasks in a simple, prioritized list format. Ideal for quick task management.',
 		icon: IconList,
 	},
-] as const; // Add type assertion
+] as const;
 
 const ViewsPage = () => {
-	// Changed to arrow function
 	return (
 		<div className='max-w-7xl mx-auto px-4 py-20'>
 			{/* Hero Section */}

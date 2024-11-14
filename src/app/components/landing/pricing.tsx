@@ -6,7 +6,7 @@ import { Button } from '../ui/button';
 
 export const Pricing = () => {
 	return (
-		<section className='py-20 bg-black text-white'>
+		<section id='pricing' className='py-20 bg-black text-white'>
 			<div className='max-w-7xl mx-auto px-4'>
 				<div className='text-center mb-16'>
 					<h2 className='text-3xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-neutral-100 via-neutral-300 to-neutral-100 mb-4'>

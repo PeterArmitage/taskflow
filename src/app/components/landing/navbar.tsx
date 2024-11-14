@@ -63,14 +63,14 @@ const navigation: NavItem[] = [
 				title: 'Enterprise',
 				description: 'For large organizations',
 				icon: <IconBuildingSkyscraper className='w-4 h-4' />,
-				href: '/solutions/enterprise',
+				href: '/features/solutions/enterprise',
 				type: 'page',
 			},
 			{
 				title: 'Small Business',
 				description: 'For growing teams',
 				icon: <IconBriefcase className='w-4 h-4' />,
-				href: '/solutions/small-business',
+				href: '/features/solutions/small-business',
 				type: 'page',
 			},
 		],
@@ -84,22 +84,22 @@ const navigation: NavItem[] = [
 				title: 'Free',
 				description: 'For individuals and small teams',
 				icon: <IconUsers className='w-4 h-4' />,
-				href: '/pricing#free',
-				type: 'page',
+				href: '#pricing',
+				type: 'section',
 			},
 			{
 				title: 'Professional',
 				description: 'For growing teams and organizations',
 				icon: <IconCreditCard className='w-4 h-4' />,
-				href: '/pricing#professional',
-				type: 'page',
+				href: '#pricing',
+				type: 'section',
 			},
 			{
 				title: 'Enterprise',
 				description: 'For large organizations',
 				icon: <IconBuilding className='w-4 h-4' />,
-				href: '/pricing#enterprise',
-				type: 'page',
+				href: '#pricing',
+				type: 'section',
 			},
 		],
 	},
@@ -116,26 +116,33 @@ export const LandingNavbar = () => {
 	const isHomePage = pathname === '/';
 
 	const handleNavigation = (href: string, type: 'section' | 'page') => {
+		console.log('handleNavigation called with:', { href, type });
+
+		if (href.includes('pricing')) {
+			const pricingSection = document.querySelector('#pricing');
+			if (pricingSection) {
+				pricingSection.scrollIntoView({ behavior: 'smooth' });
+			}
+			return;
+		}
+
 		if (isHomePage && type === 'section') {
-			// Smooth scroll to section
 			const element = document.querySelector(href);
 			if (element) {
 				element.scrollIntoView({ behavior: 'smooth' });
 			}
 		} else {
-			// Navigate to separate page
 			router.push(href);
 		}
 	};
-
 	const handleMenuClick = (
 		item: NavItem | NonNullable<NavItem['items']>[number]
 	) => {
+		console.log('Navigating to:', item.href, 'Type:', item.type);
 		const type = item.type;
 		const href = item.href;
 		handleNavigation(href, type);
 	};
-
 	return (
 		<div className='relative'>
 			<AuroraBackground className='absolute top-0 h-[100vh] w-full opacity-40' />
