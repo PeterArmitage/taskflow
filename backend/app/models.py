@@ -14,7 +14,8 @@ class User(Base):
     hashed_password = Column(String)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
+    password_reset_token = Column(String, unique=True, nullable=True)
+    password_reset_expires = Column(DateTime, nullable=True)
     boards = relationship("Board", back_populates="owner")
     activities = relationship("Activity", back_populates="user")
     templates = relationship("BoardTemplate", back_populates="creator")

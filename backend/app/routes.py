@@ -1,21 +1,40 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 import shutil
 import os
+import secrets
 from . import models, schemas, auth
 from .database import get_db
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from sqlalchemy import func, desc, or_, asc, and_
 from .exceptions import NotFoundException, ForbiddenException, BadRequestException
 from .models import PermissionLevel
 import logging
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from pydantic import EmailStr
+from .auth import authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 UPLOAD_DIR = "uploads"
 # Create an APIRouter instance
 router = APIRouter()
+email_config = ConnectionConfig(
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
+    MAIL_FROM=os.getenv("MAIL_FROM"),
+    MAIL_PORT=int(os.getenv("MAIL_PORT", 587)),
+    MAIL_SERVER=os.getenv("MAIL_SERVER"),
+    MAIL_STARTTLS=True,
+    MAIL_SSL_TLS=False,
+    USE_CREDENTIALS=True
+)
+
+fastmail = FastMail(email_config)
 
 # Board routes
 
@@ -669,15 +688,32 @@ def get_card_comments(
 
 @router.post("/users/", response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.username == user.username).first()
+    # Add logging
+    print("Received user data:", user.model_dump())
+    
+    # Check for existing user
+    db_user = db.query(models.User).filter(
+        models.User.email == user.email
+    ).first()
+    
     if db_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
-    hashed_password = auth.get_password_hash(user.password)
-    db_user = models.User(username=user.username, email=user.email, hashed_password=hashed_password)
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+        raise HTTPException(status_code=400, detail="Email already registered")
+        
+    db_user = models.User(
+        username=user.email,  # Use email as username
+        email=user.email,
+        hashed_password=auth.get_password_hash(user.password)
+    )
+    
+    try:
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+    except Exception as e:
+        db.rollback()
+        print("Database error:", str(e))
+        raise HTTPException(status_code=400, detail="Could not create user")
 
 @router.get("/users/me/", response_model=schemas.User)
 async def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
@@ -691,20 +727,24 @@ async def read_user_boards(current_user: models.User = Depends(auth.get_current_
 #token
 
 @router.post("/token", response_model=schemas.Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = auth.authenticate_user(db, form_data.username, form_data.password)
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    print(f"Login attempt for: {form_data.username}")
+    user = authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = auth.create_access_token(
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
-
 
 #search
 @router.get("/search", response_model=List[schemas.SearchResult])
@@ -766,7 +806,87 @@ async def search(
 
 
 
+@router.post("/password-reset/request", status_code=status.HTTP_200_OK)
+async def request_password_reset(
+    email: EmailStr,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        # Return 200 even if user not found for security
+        return {"message": "If a user with that email exists, a password reset link has been sent."}
 
+    # Generate reset token
+    reset_token = secrets.token_urlsafe(32)
+    user.password_reset_token = reset_token
+    user.password_reset_expires = datetime.now(timezone.utc) + timedelta(hours=1)
+    db.commit()
+
+    # Create reset link
+    reset_url = f"{os.getenv('FRONTEND_URL')}/reset-password/{reset_token}"
+
+    # Create email message
+    message = MessageSchema(
+        subject="Password Reset Request",
+        recipients=[email],
+        body=f"""
+        Hi {user.username},
+
+        You requested to reset your password. Click the link below to reset it:
+
+        {reset_url}
+
+        This link will expire in 1 hour.
+
+        If you didn't request this, please ignore this email.
+        """,
+    )
+
+    # Send email in background
+    background_tasks.add_task(fastmail.send_message, message)
+
+    return {"message": "Password reset email sent successfully"}
+
+@router.get("/password-reset/verify/{token}", status_code=status.HTTP_200_OK)
+async def verify_reset_token(token: str, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(
+        models.User.password_reset_token == token,
+        models.User.password_reset_expires > datetime.now(timezone.utc)
+    ).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token"
+        )
+
+    return {"message": "Valid reset token"}
+
+@router.post("/password-reset/reset/{token}", status_code=status.HTTP_200_OK)
+async def reset_password(
+    token: str,
+    new_password: schemas.PasswordReset,
+    db: Session = Depends(get_db)
+):
+    user = db.query(models.User).filter(
+        models.User.password_reset_token == token,
+        models.User.password_reset_expires > datetime.now(timezone.utc)
+    ).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token"
+        )
+
+    # Update password
+    user.hashed_password = auth.get_password_hash(new_password.new_password)
+    user.password_reset_token = None
+    user.password_reset_expires = None
+    db.commit()
+
+    return {"message": "Password updated successfully"}
 
 
 

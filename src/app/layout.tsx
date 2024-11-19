@@ -1,10 +1,10 @@
-// app/layout.tsx
 import type { Metadata } from 'next';
 import { Inter, Montserrat } from 'next/font/google';
 import './globals.css';
 import '@radix-ui/themes/styles.css';
 import { Theme } from '@radix-ui/themes';
 import { ThemeProvider } from './providers/theme-provider';
+import { AuthProvider } from './providers/auth-provider';
 
 const inter = Inter({ subsets: ['latin'] });
 const montserrat = Montserrat({
@@ -26,10 +26,12 @@ export default function RootLayout({
 	return (
 		<html lang='en' className='scroll-smooth'>
 			<body
-				className={`${inter.className} ${montserrat.variable} min-h-screen`}
+				className={`${inter.className} ${montserrat.variable} min-h-screen flex flex-col`}
 			>
 				<ThemeProvider>
-					<Theme>{children}</Theme>
+					<Theme>
+						<AuthProvider>{children}</AuthProvider>
+					</Theme>
 				</ThemeProvider>
 			</body>
 		</html>

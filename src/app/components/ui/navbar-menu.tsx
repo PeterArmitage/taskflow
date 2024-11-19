@@ -102,16 +102,18 @@ export const Menu: React.FC<MenuProps> = ({ setActive, children }) => {
 		setActive(null);
 	};
 
-	// Type-safe child cloning
 	const childrenWithProps = React.Children.map(children, (child) => {
 		if (React.isValidElement(child)) {
-			return React.cloneElement(child as React.ReactElement<MenuItemProps>, {
-				active: activeItem,
-				setActive: (item: string | null) => {
-					setActiveItem(item);
-					setActive(item);
-				},
-			});
+			return React.cloneElement(
+				child as React.ReactElement<MenuItemProps | MenuItemPropsExternal>,
+				{
+					active: activeItem,
+					setActive: (item: string | null) => {
+						setActiveItem(item);
+						setActive(item);
+					},
+				}
+			);
 		}
 		return child;
 	});

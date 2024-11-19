@@ -25,9 +25,17 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 def authenticate_user(db: Session, username: str, password: str):
-    user = db.query(models.User).filter(models.User.username == username).first()
-    if not user or not verify_password(password, user.hashed_password):
+    # Try to find user by email if username lookup fails
+    user = db.query(models.User).filter(
+        (models.User.username == username) | (models.User.email == username)
+    ).first()
+    
+    if not user:
         return False
+    
+    if not verify_password(password, user.hashed_password):
+        return False
+        
     return user
 
 def create_access_token(data: dict, expires_delta: timedelta = None):

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Menu, MenuItem } from '../ui/navbar-menu';
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/app/providers/auth-provider';
 import {
 	IconLayoutKanban,
 	IconUsers,
@@ -113,11 +114,10 @@ export const LandingNavbar = () => {
 	const [, setActiveItem] = useState<string | null>(null);
 	const pathname = usePathname();
 	const router = useRouter();
+	const { user, signout } = useAuth();
 	const isHomePage = pathname === '/';
 
 	const handleNavigation = (href: string, type: 'section' | 'page') => {
-		console.log('handleNavigation called with:', { href, type });
-
 		if (href.includes('pricing')) {
 			const pricingSection = document.querySelector('#pricing');
 			if (pricingSection) {
@@ -135,21 +135,22 @@ export const LandingNavbar = () => {
 			router.push(href);
 		}
 	};
+
 	const handleMenuClick = (
 		item: NavItem | NonNullable<NavItem['items']>[number]
 	) => {
-		console.log('Navigating to:', item.href, 'Type:', item.type);
 		const type = item.type;
 		const href = item.href;
 		handleNavigation(href, type);
 	};
+
 	return (
 		<div className='relative'>
 			<AuroraBackground className='absolute top-0 h-[100vh] w-full opacity-40' />
 
 			<nav className='fixed top-0 w-full h-16 px-4 border-b flex items-center z-50'>
 				<div className='md:max-w-screen-2xl mx-auto flex items-center w-full justify-between'>
-					{/* Left side with logo and nav items */}
+					{/* Left side */}
 					<div className='flex items-center gap-x-8'>
 						<Link href='/'>
 							<h1 className='font-mono text-xl md:text-3xl font-bold'>
@@ -157,7 +158,6 @@ export const LandingNavbar = () => {
 							</h1>
 						</Link>
 
-						{/* Desktop Navigation */}
 						<div className='hidden md:flex items-center'>
 							<Menu setActive={setActiveItem}>
 								{navigation.map((item) => (
@@ -183,15 +183,7 @@ export const LandingNavbar = () => {
 																<p className='font-medium text-sm'>
 																	{subItem.title}
 																</p>
-																{subItem.title === 'Free' && (
-																	<PriceTag price='$0' />
-																)}
-																{subItem.title === 'Professional' && (
-																	<PriceTag price='$12/mo' />
-																)}
-																{subItem.title === 'Enterprise' && (
-																	<PriceTag price='$29/mo' />
-																)}
+																{/* ... pricing tags ... */}
 															</div>
 															<p className='text-xs text-neutral-500'>
 																{subItem.description}
@@ -209,12 +201,37 @@ export const LandingNavbar = () => {
 
 					{/* Right side auth buttons */}
 					<div className='flex items-center gap-x-4'>
-						<button className='px-4 py-2 rounded-md border border-black bg-white text-black text-sm hover:shadow-[4px_4px_0px_0px_rgba(0,0,0)] transition duration-200'>
-							Login
-						</button>
-						<button className='px-4 py-2 rounded-md border border-black bg-white text-black text-sm hover:shadow-[4px_4px_0px_0px_rgba(0,0,0)] transition duration-200'>
-							Get TaskFlow for free
-						</button>
+						{user ? (
+							<>
+								<button
+									className='px-4 py-2 rounded-md border border-black bg-white text-black text-sm hover:shadow-[4px_4px_0px_0px_rgba(0,0,0)] transition duration-200'
+									onClick={() => router.push('/dashboard')}
+								>
+									Dashboard
+								</button>
+								<button
+									className='px-4 py-2 rounded-md border border-black bg-white text-black text-sm hover:shadow-[4px_4px_0px_0px_rgba(0,0,0)] transition duration-200'
+									onClick={signout}
+								>
+									Sign Out
+								</button>
+							</>
+						) : (
+							<>
+								<button
+									className='px-4 py-2 rounded-md border border-black bg-white text-black text-sm hover:shadow-[4px_4px_0px_0px_rgba(0,0,0)] transition duration-200'
+									onClick={() => router.push('/signin')}
+								>
+									Login
+								</button>
+								<button
+									className='px-4 py-2 rounded-md border border-black bg-white text-black text-sm hover:shadow-[4px_4px_0px_0px_rgba(0,0,0)] transition duration-200'
+									onClick={() => router.push('/signup')}
+								>
+									Get TaskFlow for free
+								</button>
+							</>
+						)}
 					</div>
 				</div>
 			</nav>

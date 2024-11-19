@@ -1,11 +1,19 @@
+# main.py
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from .database import engine
 from . import models
 from .routes import router
-from .exceptions import NotFoundException, ForbiddenException, BadRequestException, CustomException, UnauthorizedException
+from .exceptions import (
+    NotFoundException, 
+    ForbiddenException, 
+    BadRequestException, 
+    CustomException, 
+    UnauthorizedException
+)
 import logging
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
@@ -17,7 +25,7 @@ load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
+models.Base.metadata.create_all(bind=engine)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,12 +45,21 @@ async def lifespan(app: FastAPI):
     
     if app.state.use_redis:
         await FastAPILimiter.close()
-    
 
 app = FastAPI(lifespan=lifespan)
 
+# Add CORS middleware right after creating the app
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(router)
 
+# Exception handlers
 @app.exception_handler(NotFoundException)
 async def not_found_exception_handler(request: Request, exc: NotFoundException):
     return JSONResponse(
@@ -82,17 +99,6 @@ async def rate_limit_if_redis():
     if app.state.use_redis:
         await RateLimiter(times=2, seconds=5)
 
-
 @app.get("/", dependencies=[Depends(rate_limit_if_redis)])
 async def root():
     return {"message": "Hello World"}
-
-from fastapi.middleware.cors import CORSMiddleware
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Your Next.js app URL
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)

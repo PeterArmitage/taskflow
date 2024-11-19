@@ -18,3 +18,4 @@ python-multipart==0.0.6
 pytest-cov==4.1.0
 SQLAlchemy-Utils==0.41.1
 fastapi-pagination==0.12.12
+fastapi-mail==1.4.1

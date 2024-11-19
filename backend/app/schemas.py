@@ -190,3 +190,6 @@ class BoardMember(BoardMemberCreate):
     board_id: int
 
     model_config = ConfigDict(from_attributes=True)      
+    
+class PasswordReset(BaseModel):
+    new_password: str    
