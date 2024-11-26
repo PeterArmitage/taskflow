@@ -6,11 +6,29 @@ import { Button } from '@/app/components/ui/button';
 import { IconPlus, IconLayoutKanban } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { Board } from '@/app/types/boards';
+import { BoardGrid } from '@/app/components/dashboard/boards/board-grid';
+import { boardApi } from '@/app/api/board';
 
 export default function BoardsPage() {
 	const [boards, setBoards] = useState<Board[]>([]);
 	const [loading, setLoading] = useState(false);
 	const router = useRouter();
+
+	const handleCreateBoard = async (data: {
+		title: string;
+		description?: string;
+	}) => {
+		try {
+			setLoading(true);
+			const newBoard = await boardApi.createBoard(data);
+			setBoards((prev) => [...prev, newBoard]);
+		} catch (error) {
+			console.error('Failed to create board:', error);
+			throw error;
+		} finally {
+			setLoading(false);
+		}
+	};
 
 	const container = {
 		hidden: { opacity: 0 },
@@ -40,6 +58,7 @@ export default function BoardsPage() {
 					<IconPlus className='mr-2 h-4 w-4' />
 					Create Board
 				</Button>
+				<BoardGrid boards={boards} onCreateBoard={handleCreateBoard} />
 			</div>
 
 			{loading ? (

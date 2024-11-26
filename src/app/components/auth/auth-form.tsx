@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/app/components/ui/button';
 import { AuthFormData, AuthError } from '@/app/types/auth';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface AuthFormProps {
 	onSubmit: (data: AuthFormData) => void;
@@ -21,6 +22,7 @@ export function AuthForm({
 		email: '',
 		password: '',
 		username: isRegister ? '' : undefined,
+		rememberMe: false,
 	});
 
 	const handleSubmit = (e: React.FormEvent) => {
@@ -53,7 +55,23 @@ export function AuthForm({
 					/>
 				</div>
 			)}
-
+			{!isRegister && (
+				<div className='flex items-center space-x-2'>
+					<Checkbox
+						id='remember'
+						checked={formData.rememberMe}
+						onCheckedChange={(checked) =>
+							setFormData({ ...formData, rememberMe: checked as boolean })
+						}
+					/>
+					<label
+						htmlFor='remember'
+						className='text-sm text-neutral-600 dark:text-neutral-400'
+					>
+						Remember me
+					</label>
+				</div>
+			)}
 			<div>
 				<input
 					type='email'

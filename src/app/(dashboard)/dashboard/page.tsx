@@ -1,9 +1,31 @@
+// app/(dashboard)/page.tsx
 'use client';
 
+import { useEffect, useState } from 'react';
 import { WobbleCard } from '@/app/components/ui/wobble-card';
 import { motion } from 'framer-motion';
+import { Board } from '@/app/types/boards';
+import { boardApi } from '@/app/api/board';
 
 export default function DashboardHome() {
+	const [boards, setBoards] = useState<Board[]>([]);
+	const [loading, setLoading] = useState(true);
+
+	useEffect(() => {
+		loadBoards();
+	}, []);
+
+	const loadBoards = async () => {
+		try {
+			const data = await boardApi.getBoards();
+			setBoards(data);
+		} catch (error) {
+			console.error('Failed to load boards:', error);
+		} finally {
+			setLoading(false);
+		}
+	};
+
 	return (
 		<div className='space-y-8'>
 			<motion.div
@@ -33,7 +55,19 @@ export default function DashboardHome() {
 				</WobbleCard>
 			</div>
 
-			{/* Add more dashboard content here */}
+			{/* Recent Activity Section */}
+			<div className='bg-white dark:bg-neutral-900 rounded-lg p-6'>
+				<h2 className='text-xl font-semibold mb-4'>Recent Activity</h2>
+				<div className='space-y-4'>{/* Add your activity items here */}</div>
+			</div>
+
+			{/* Quick Actions Section */}
+			<div className='bg-white dark:bg-neutral-900 rounded-lg p-6'>
+				<h2 className='text-xl font-semibold mb-4'>Quick Actions</h2>
+				<div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
+					{/* Add your quick action buttons here */}
+				</div>
+			</div>
 		</div>
 	);
 }

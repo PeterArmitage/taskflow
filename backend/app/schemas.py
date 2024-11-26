@@ -193,3 +193,11 @@ class BoardMember(BoardMemberCreate):
     
 class PasswordReset(BaseModel):
     new_password: str    
+    
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+    bio: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)    

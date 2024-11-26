@@ -1,36 +1,55 @@
-import axios from 'axios';
-import { Board, BoardWithLists } from '@/app/types/boards';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+// api/board.ts
+import { Board } from '@/app/types/boards';
+import { api, withTrailingSlash, handleApiError } from './api';
 
 export const boardApi = {
+	async getBoards(): Promise<Board[]> {
+		try {
+			const response = await api.get(withTrailingSlash('boards'));
+			return response.data;
+		} catch (error) {
+			throw handleApiError(error as Error);
+		}
+	},
+
 	async createBoard(data: {
 		title: string;
 		description?: string;
 	}): Promise<Board> {
-		const response = await axios.post(`${API_URL}/boards/`, data, {
-			headers: {
-				Authorization: `Bearer ${localStorage.getItem('token')}`,
-			},
-		});
-		return response.data;
+		try {
+			const response = await api.post(withTrailingSlash('boards'), data);
+			return response.data;
+		} catch (error) {
+			throw handleApiError(error as Error);
+		}
 	},
 
-	async getBoards(): Promise<Board[]> {
-		const response = await axios.get(`${API_URL}/boards/`, {
-			headers: {
-				Authorization: `Bearer ${localStorage.getItem('token')}`,
-			},
-		});
-		return response.data;
+	async getBoard(id: number): Promise<Board> {
+		try {
+			const response = await api.get(withTrailingSlash(`boards/${id}`));
+			return response.data;
+		} catch (error) {
+			throw handleApiError(error as Error);
+		}
 	},
 
-	async getBoard(id: string): Promise<BoardWithLists> {
-		const response = await axios.get(`${API_URL}/boards/${id}`, {
-			headers: {
-				Authorization: `Bearer ${localStorage.getItem('token')}`,
-			},
-		});
-		return response.data;
+	async updateBoard(
+		id: number,
+		data: { title?: string; description?: string }
+	): Promise<Board> {
+		try {
+			const response = await api.put(withTrailingSlash(`boards/${id}`), data);
+			return response.data;
+		} catch (error) {
+			throw handleApiError(error as Error);
+		}
+	},
+
+	async deleteBoard(id: number): Promise<void> {
+		try {
+			await api.delete(withTrailingSlash(`boards/${id}`));
+		} catch (error) {
+			throw handleApiError(error as Error);
+		}
 	},
 };

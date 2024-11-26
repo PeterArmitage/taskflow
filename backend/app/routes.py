@@ -12,8 +12,8 @@ from sqlalchemy import func, desc, or_, asc, and_
 from .exceptions import NotFoundException, ForbiddenException, BadRequestException
 from .models import PermissionLevel
 import logging
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
-from pydantic import EmailStr
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
+from pydantic import EmailStr, BaseModel
 from .auth import authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 from dotenv import load_dotenv
 
@@ -31,8 +31,10 @@ email_config = ConnectionConfig(
     MAIL_SERVER=os.getenv("MAIL_SERVER"),
     MAIL_STARTTLS=True,
     MAIL_SSL_TLS=False,
-    USE_CREDENTIALS=True
+    USE_CREDENTIALS=True,
+    VALIDATE_CERTS=True
 )
+
 
 fastmail = FastMail(email_config)
 
@@ -863,30 +865,144 @@ async def verify_reset_token(token: str, db: Session = Depends(get_db)):
 
     return {"message": "Valid reset token"}
 
-@router.post("/password-reset/reset/{token}", status_code=status.HTTP_200_OK)
-async def reset_password(
-    token: str,
-    new_password: schemas.PasswordReset,
+@router.post("/password-reset/request", status_code=status.HTTP_200_OK)
+async def request_password_reset(
+    email: EmailStr,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    user = db.query(models.User).filter(
-        models.User.password_reset_token == token,
-        models.User.password_reset_expires > datetime.now(timezone.utc)
-    ).first()
-
+    user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired reset token"
-        )
+        # Return 200 even if user not found for security
+        return {"message": "If a user with that email exists, a password reset link has been sent."}
 
-    # Update password
-    user.hashed_password = auth.get_password_hash(new_password.new_password)
-    user.password_reset_token = None
-    user.password_reset_expires = None
+    # Generate reset token
+    reset_token = secrets.token_urlsafe(32)
+    user.password_reset_token = reset_token
+    user.password_reset_expires = datetime.now(timezone.utc) + timedelta(hours=1)
     db.commit()
 
-    return {"message": "Password updated successfully"}
+    # Create reset link
+    reset_url = f"{os.getenv('FRONTEND_URL')}/reset-password/{reset_token}"
 
+    # Create email message
+    message = MessageSchema(
+        subject="Password Reset Request",
+        recipients=[email],
+        body=f"""
+        Hi {user.username},
 
+        You requested to reset your password. Click the link below to reset it:
 
+        {reset_url}
+
+        This link will expire in 1 hour.
+
+        If you didn't request this, please ignore this email.
+        """,
+        subtype=MessageType.plain
+    )
+
+    # Send email immediately (changed from background task for better error handling)
+    try:
+        await fastmail.send_message(message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send reset email: {str(e)}"
+        )
+
+    return {"message": "Password reset email sent successfully"}
+
+# Add this temporarily to your routes.py for testing
+
+@router.post("/test-email/")
+async def test_email(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    try:
+        message = MessageSchema(
+            subject="Test Email from TaskFlow",
+            recipients=[os.getenv("MAIL_FROM")],  
+            body="""
+            This is a test email from your TaskFlow application.
+            If you receive this, your email configuration is working!
+            """,
+            subtype=MessageType.plain  
+        )
+        
+        await fastmail.send_message(message)
+        return {"message": "Test email sent successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send email: {str(e)}"
+        )
+
+@router.put("/users/{user_id}", response_model=schemas.User)
+async def update_user(
+    user_id: int,
+    user_data: schemas.UserUpdate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized to update this user"
+        )
+    
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update user fields
+    for var, value in vars(user_data).items():
+        if value is not None:
+            setattr(db_user, var, value)
+    
+    try:
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.put("/users/{user_id}/avatar", response_model=schemas.User)
+async def update_user_avatar(
+    user_id: int,
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized to update this user's avatar"
+        )
+    
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Save the file
+    file_path = f"uploads/avatars/{user_id}_{file.filename}"
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    
+    try:
+        with open(file_path, "wb+") as file_object:
+            shutil.copyfileobj(file.file, file_object)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not upload file: {str(e)}"
+        )
+    
+    
+    db_user.avatar_url = file_path
+    db.commit()
+    db.refresh(db_user)
+    
+    return db_user

@@ -1,25 +1,21 @@
 // providers/auth-provider.tsx
 'use client';
 
-import {
-	createContext,
-	useCallback,
-	useContext,
-	useEffect,
-	useState,
-} from 'react';
-import { AuthState, AuthFormData } from '../types/auth';
-import { authApi } from '../api/auth';
+import { createContext, useCallback, useEffect, useState } from 'react';
+import type {
+	AuthContextType,
+	AuthState,
+	AuthFormData,
+	User,
+	AuthResponse,
+	AuthError,
+} from '@/app/types/auth';
+import { authApi } from '@/app/api/auth';
 import { useRouter } from 'next/navigation';
-import { ApiError } from '../types/error';
+import { ApiError } from '@/app/types/error';
+import { storage } from '@/app/utils/storage';
 
-interface AuthContextType extends AuthState {
-	signin: (data: AuthFormData) => Promise<void>;
-	signup: (data: AuthFormData) => Promise<void>;
-	signout: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | null>(null);
+export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const [state, setState] = useState<AuthState>({
@@ -29,13 +25,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	});
 	const router = useRouter();
 
-	// Check for existing auth session
 	useEffect(() => {
 		let mounted = true;
 
 		const initializeAuth = async () => {
 			try {
-				const token = localStorage.getItem('token');
+				const token = storage.getItem('token');
 				if (token) {
 					const user = await authApi.getCurrentUser();
 					if (mounted) {
@@ -48,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 				}
 			} catch (error) {
 				console.error('Auth initialization error:', error);
-				localStorage.removeItem('token');
+				storage.removeItem('token');
 				if (mounted) {
 					setState((prev) => ({ ...prev, loading: false }));
 				}
@@ -62,29 +57,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		};
 	}, []);
 
-	const signin = async (data: AuthFormData) => {
+	const signin = async (data: AuthFormData): Promise<AuthResponse> => {
 		try {
 			setState((prev) => ({ ...prev, loading: true, error: null }));
 			const response = await authApi.signin(data);
+
+			storage.setItem('token', response.access_token, data.rememberMe ?? false);
+
 			setState((prev) => ({
 				...prev,
 				user: response.user,
 				loading: false,
 			}));
+
 			window.location.href = '/dashboard';
+			return response;
 		} catch (error) {
 			const apiError = error as ApiError;
+			const authError: AuthError = {
+				message: apiError.message || 'Sign in failed',
+			};
 			setState((prev) => ({
 				...prev,
-				error: apiError.message
-					? { message: apiError.message }
-					: { message: 'Sign in failed' },
+				error: authError,
 				loading: false,
 			}));
+			throw error;
 		}
 	};
 
-	const signup = async (data: AuthFormData) => {
+	const signup = async (data: AuthFormData): Promise<AuthResponse> => {
 		try {
 			setState((prev) => ({ ...prev, loading: true, error: null }));
 			const response = await authApi.signup(data);
@@ -94,13 +96,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 				loading: false,
 			}));
 			router.push('/dashboard');
+			return response;
 		} catch (error) {
 			const apiError = error as ApiError;
+			const authError: AuthError = {
+				message: apiError.message || 'Sign up failed',
+			};
 			setState((prev) => ({
 				...prev,
-				error: { message: apiError.message },
+				error: authError,
 				loading: false,
 			}));
+			throw error;
 		}
 	};
 
@@ -109,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			setState((prev) => ({ ...prev, loading: true }));
 			await authApi.logout();
 			setState({ user: null, loading: false, error: null });
-			localStorage.removeItem('token');
+			storage.removeItem('token');
 			window.location.href = '/signin';
 		} catch (error) {
 			console.error('Signout error:', error);
@@ -117,20 +124,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		}
 	}, []);
 
-	const value = {
-		...state,
+	const updateUser = useCallback((data: Partial<User>) => {
+		setState((prev) => ({
+			...prev,
+			user: prev.user ? { ...prev.user, ...data } : null,
+		}));
+	}, []);
+
+	const contextValue: AuthContextType = {
+		user: state.user,
+		loading: state.loading,
+		error: state.error,
 		signin,
 		signup,
 		signout,
+		updateUser,
 	};
 
-	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+	return (
+		<AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
+	);
 }
-
-export const useAuth = () => {
-	const context = useContext(AuthContext);
-	if (!context) {
-		throw new Error('useAuth must be used within an AuthProvider');
-	}
-	return context;
-};

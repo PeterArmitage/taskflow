@@ -1,97 +1,123 @@
+// components/auth/reset-password-form.tsx
+'use client';
+
 import { useState } from 'react';
-import { Button } from '@/app/components/ui/button';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { motion } from 'framer-motion';
+import { Button } from '@/app/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
-interface ResetPasswordData {
-	password: string;
-	confirmPassword: string;
-}
+const passwordSchema = z
+	.object({
+		password: z
+			.string()
+			.min(8, 'Password must be at least 8 characters')
+			.regex(
+				/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+				'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+			),
+		confirmPassword: z.string(),
+	})
+	.refine((data) => data.password === data.confirmPassword, {
+		message: 'Passwords do not match',
+		path: ['confirmPassword'],
+	});
 
-export function ResetPasswordForm({
-	onSubmit,
-	loading = false,
-	error = null,
-}: {
-	onSubmit: (data: ResetPasswordData) => void;
+type ResetPasswordData = z.infer<typeof passwordSchema>;
+
+interface ResetPasswordFormProps {
+	onSubmit: (data: { password: string }) => Promise<void>;
 	loading?: boolean;
 	error?: { message: string } | null;
-}) {
-	const [data, setData] = useState<ResetPasswordData>({
-		password: '',
-		confirmPassword: '',
+}
+
+export const ResetPasswordForm = ({
+	onSubmit,
+	loading,
+	error,
+}: ResetPasswordFormProps) => {
+	const [isSubmitted, setIsSubmitted] = useState(false);
+
+	const {
+		register,
+		handleSubmit,
+		formState: { errors },
+	} = useForm<ResetPasswordData>({
+		resolver: zodResolver(passwordSchema),
 	});
-	const [validationError, setValidationError] = useState<string | null>(null);
 
-	const handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
-		setValidationError(null);
-
-		if (data.password.length < 8) {
-			setValidationError('Password must be at least 8 characters long');
-			return;
+	const onFormSubmit = async (data: ResetPasswordData) => {
+		try {
+			await onSubmit({ password: data.password });
+			setIsSubmitted(true);
+		} catch (err) {
+			console.error('Password reset failed:', err);
 		}
-
-		if (data.password !== data.confirmPassword) {
-			setValidationError('Passwords do not match');
-			return;
-		}
-
-		onSubmit(data);
 	};
 
+	if (isSubmitted) {
+		return (
+			<motion.div
+				initial={{ opacity: 0, y: 20 }}
+				animate={{ opacity: 1, y: 0 }}
+				className='text-center p-6 space-y-4'
+			>
+				<h3 className='text-xl font-semibold'>Password Reset Successful</h3>
+				<p className='text-neutral-600 dark:text-neutral-400'>
+					Your password has been reset successfully. You can now sign in with
+					your new password.
+				</p>
+			</motion.div>
+		);
+	}
+
 	return (
-		<motion.form
-			onSubmit={handleSubmit}
-			initial={{ opacity: 0 }}
-			animate={{ opacity: 1 }}
-			className='space-y-4'
-		>
-			<div>
-				<input
+		<form onSubmit={handleSubmit(onFormSubmit)} className='space-y-4'>
+			<div className='space-y-2'>
+				<Input
 					type='password'
-					placeholder='New password'
-					value={data.password}
-					onChange={(e) => setData({ ...data, password: e.target.value })}
-					className='w-full p-3 rounded-lg bg-white/5 border border-neutral-200 dark:border-neutral-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors'
-					required
+					placeholder='New Password'
+					{...register('password')}
+					className={cn(errors.password && 'border-red-500')}
+					disabled={loading}
 				/>
+				{errors.password && (
+					<p className='text-sm text-red-500'>{errors.password.message}</p>
+				)}
 			</div>
 
-			<div>
-				<input
+			<div className='space-y-2'>
+				<Input
 					type='password'
-					placeholder='Confirm new password'
-					value={data.confirmPassword}
-					onChange={(e) =>
-						setData({ ...data, confirmPassword: e.target.value })
-					}
-					className='w-full p-3 rounded-lg bg-white/5 border border-neutral-200 dark:border-neutral-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors'
-					required
+					placeholder='Confirm Password'
+					{...register('confirmPassword')}
+					className={cn(errors.confirmPassword && 'border-red-500')}
+					disabled={loading}
 				/>
+				{errors.confirmPassword && (
+					<p className='text-sm text-red-500'>
+						{errors.confirmPassword.message}
+					</p>
+				)}
 			</div>
 
-			{(error || validationError) && (
-				<motion.p
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					className='text-red-500 text-sm'
-				>
-					{validationError || error?.message}
-				</motion.p>
+			{error && (
+				<div className='p-3 rounded bg-red-50 text-red-500 text-sm'>
+					{error.message}
+				</div>
 			)}
 
 			<Button
 				variant='sketch'
-				className='w-full'
 				type='submit'
+				className='w-full'
 				disabled={loading}
 			>
-				{loading ? (
-					<div className='animate-spin rounded-full h-5 w-5 border-b-2 border-white' />
-				) : (
-					'Reset Password'
-				)}
+				{loading ? 'Resetting Password...' : 'Reset Password'}
 			</Button>
-		</motion.form>
+		</form>
 	);
-}
+};

@@ -3,7 +3,7 @@
 
 import AuthLayout from '../layout';
 import { AuthForm } from '@/app/components/auth/auth-form';
-import { useAuth } from '@/app/hooks/useAuth';
+import { useAuth } from '@/app/hooks';
 import { AuthFormData, AuthError } from '@/app/types/auth';
 
 export default function SignUp() {
@@ -12,9 +12,8 @@ export default function SignUp() {
 	const handleSubmit = async (data: AuthFormData) => {
 		await signup(data);
 	};
-
 	// Convert the error to match AuthError type
-	const formError: AuthError | null = error ? { message: error } : null;
+	const formError: AuthError | null = error ? { message: error.message } : null;
 
 	return (
 		<AuthLayout

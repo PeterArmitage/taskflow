@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Menu, MenuItem } from '../ui/navbar-menu';
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/app/providers/auth-provider';
+import { useAuth } from '@/app/hooks/useAuth';
 import {
 	IconLayoutKanban,
 	IconUsers,

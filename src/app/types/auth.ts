@@ -4,12 +4,16 @@ export interface User {
 	email: string;
 	created_at: string;
 	updated_at?: string;
+	avatar_url?: string;
+	name?: string;
+	bio?: string;
 }
 
 export interface AuthFormData {
 	email: string;
 	password: string;
-	username?: string; // Optional for registration
+	username?: string;
+	rememberMe?: boolean;
 }
 
 export interface AuthResponse {
@@ -21,6 +25,7 @@ export interface AuthResponse {
 export interface AuthError {
 	message: string;
 	field?: string;
+	code?: string;
 }
 
 export interface AuthState {
@@ -35,4 +40,49 @@ export interface ApiError {
 			detail?: string;
 		};
 	};
+}
+
+export interface PasswordResetRequest {
+	email: string;
+}
+
+export interface PasswordResetVerify {
+	token: string;
+}
+
+export interface PasswordReset {
+	password: string;
+	token: string;
+}
+
+export type ApiErrorResponse = {
+	response?: {
+		data?: {
+			detail?: string;
+		};
+		status?: number;
+	};
+	message?: string;
+};
+
+export interface ProfileUpdateData {
+	username?: string;
+	email?: string;
+	name?: string;
+	bio?: string;
+	avatar_url?: string;
+}
+
+export interface AuthContextType {
+	user: User | null;
+	loading: boolean;
+	error: AuthError | null;
+	signup: (data: AuthFormData) => Promise<AuthResponse>;
+	signin: (data: AuthFormData) => Promise<AuthResponse>;
+	signout: () => Promise<void>;
+	updateUser: (data: Partial<User>) => void;
+}
+
+export interface AvatarUpdateResponse {
+	avatar_url: string;
 }

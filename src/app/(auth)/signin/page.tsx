@@ -3,9 +3,9 @@
 
 import AuthLayout from '../layout';
 import { AuthForm } from '@/app/components/auth/auth-form';
-import { useAuth } from '@/app/hooks/useAuth';
+import { useAuth } from '@/app/hooks';
 import { AuthFormData, AuthError } from '@/app/types/auth';
-import Link from 'next/link';
+import { ForgotPasswordDialog } from '@/app/components/auth/forgot-password-dialog';
 
 export default function SignIn() {
 	const { signin, loading, error } = useAuth();
@@ -14,8 +14,7 @@ export default function SignIn() {
 		await signin(data);
 	};
 
-	// Convert the error to match AuthError type
-	const formError: AuthError | null = error ? { message: error } : null;
+	const formError: AuthError | null = error ? { message: error.message } : null;
 
 	return (
 		<AuthLayout
@@ -25,14 +24,14 @@ export default function SignIn() {
 		>
 			<div className='space-y-6'>
 				<AuthForm onSubmit={handleSubmit} loading={loading} error={formError} />
-
 				<div className='text-center'>
-					<Link
-						href='/forgot-password'
-						className='text-sm text-neutral-600 dark:text-neutral-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors'
-					>
-						Forgot your password?
-					</Link>
+					<ForgotPasswordDialog
+						trigger={
+							<button className='text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'>
+								Forgot your password?
+							</button>
+						}
+					/>
 				</div>
 			</div>
 		</AuthLayout>
