@@ -47,3 +47,61 @@ export interface UserSettings {
 	language: Language;
 	updatedAt: string;
 }
+
+// types/settings.ts
+
+export interface ThemeSettings {
+	mode: 'light' | 'dark' | 'system';
+	customColors: boolean;
+	animations: boolean;
+	reducedMotion: boolean;
+}
+
+export interface LanguageSettings {
+	preferred: string;
+	dateFormat: string;
+	timeFormat: '12h' | '24h';
+}
+
+export interface AccessibilitySettings {
+	screenReader: boolean;
+	highContrast: boolean;
+	largeText: boolean;
+	keyboardNavigation: boolean;
+}
+
+export interface DisplaySettings {
+	denseMode: boolean;
+	showAvatars: boolean;
+	showLabels: boolean;
+	compactView: boolean;
+}
+
+export interface AdvancedSettings {
+	theme: ThemeSettings;
+	language: LanguageSettings;
+	accessibility: AccessibilitySettings;
+	display: DisplaySettings;
+}
+
+export interface LanguageOption {
+	value: string;
+	label: string;
+}
+
+export interface DateFormatOption {
+	value: string;
+	label: string;
+}
+
+export interface TimeFormatOption {
+	value: '12h' | '24h';
+	label: string;
+}
+
+export interface SwitchItemProps {
+	title: string;
+	description: string;
+	checked: boolean;
+	onCheckedChange: (checked: boolean) => void;
+}

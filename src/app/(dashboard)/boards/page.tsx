@@ -1,125 +1,191 @@
+// app/(dashboard)/boards/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Button } from '@/app/components/ui/button';
-import { IconPlus, IconLayoutKanban } from '@tabler/icons-react';
+import { useBoard } from '@/app/hooks/use-board';
+import { Plus, Loader2, LayoutGrid, List } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { Board } from '@/app/types/boards';
-import { BoardGrid } from '@/app/components/dashboard/boards/board-grid';
-import { boardApi } from '@/app/api/board';
+import { useToast } from '@/hooks/use-toast';
+
+interface BoardViewProps {
+	view: 'grid' | 'list';
+	setView: (view: 'grid' | 'list') => void;
+}
+
+const BoardViewToggle = ({ view, setView }: BoardViewProps) => {
+	return (
+		<div className='flex items-center gap-2 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-lg'>
+			<button
+				onClick={() => setView('grid')}
+				className={`p-2 rounded ${
+					view === 'grid'
+						? 'bg-white dark:bg-neutral-700 shadow-sm'
+						: 'hover:bg-white/50 dark:hover:bg-neutral-600'
+				}`}
+			>
+				<LayoutGrid className='w-4 h-4' />
+			</button>
+			<button
+				onClick={() => setView('list')}
+				className={`p-2 rounded ${
+					view === 'list'
+						? 'bg-white dark:bg-neutral-700 shadow-sm'
+						: 'hover:bg-white/50 dark:hover:bg-neutral-600'
+				}`}
+			>
+				<List className='w-4 h-4' />
+			</button>
+		</div>
+	);
+};
 
 export default function BoardsPage() {
-	const [boards, setBoards] = useState<Board[]>([]);
-	const [loading, setLoading] = useState(false);
 	const router = useRouter();
+	const { toast } = useToast();
+	const { boards, loading, error, loadBoards, createBoard } = useBoard();
+	const [view, setView] = useState<'grid' | 'list'>('grid');
 
+	// Load boards when component mounts
+	useEffect(() => {
+		loadBoards().catch((err) => {
+			toast({
+				title: 'Error',
+				description: 'Failed to load boards. Please try again.',
+				variant: 'destructive',
+			});
+		});
+	}, [loadBoards, toast]);
+
+	// Handle board creation
 	const handleCreateBoard = async (data: {
 		title: string;
 		description?: string;
 	}) => {
 		try {
-			setLoading(true);
-			const newBoard = await boardApi.createBoard(data);
-			setBoards((prev) => [...prev, newBoard]);
+			const newBoard = await createBoard(data);
+			// After successful creation, either:
+			// Option 1: Refresh the boards list
+			await loadBoards();
+			// Option 2: Navigate to the new board
+			router.push(`/boards/${newBoard.id}`);
 		} catch (error) {
-			console.error('Failed to create board:', error);
-			throw error;
-		} finally {
-			setLoading(false);
+			toast({
+				title: 'Error',
+				description: 'Failed to create board. Please try again.',
+				variant: 'destructive',
+			});
 		}
 	};
 
-	const container = {
-		hidden: { opacity: 0 },
-		show: {
-			opacity: 1,
-			transition: {
-				staggerChildren: 0.1,
-			},
-		},
-	};
+	// Function to render boards based on current view
+	const renderBoards = () => {
+		if (loading) {
+			return (
+				<div className='flex items-center justify-center py-12'>
+					<Loader2 className='w-6 h-6 animate-spin' />
+				</div>
+			);
+		}
 
-	const item = {
-		hidden: { opacity: 0, y: 20 },
-		show: { opacity: 1, y: 0 },
+		if (error) {
+			return (
+				<div className='text-center py-12'>
+					<p className='text-red-500'>{error}</p>
+					<Button
+						variant='outline'
+						onClick={() => loadBoards()}
+						className='mt-4'
+					>
+						Try Again
+					</Button>
+				</div>
+			);
+		}
+
+		return view === 'grid' ? (
+			// Grid View
+			<motion.div layout className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+				{boards.map((board) => (
+					<motion.div
+						key={board.id}
+						layoutId={`board-${board.id}`}
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0 }}
+						onClick={() => router.push(`/boards/${board.id}`)}
+						className='bg-white dark:bg-neutral-800 rounded-lg p-6 cursor-pointer
+                       hover:shadow-lg transition-all duration-200
+                       border border-neutral-200 dark:border-neutral-700'
+					>
+						<h3 className='font-semibold text-lg mb-2'>{board.title}</h3>
+						{board.description && (
+							<p className='text-neutral-600 dark:text-neutral-400 text-sm'>
+								{board.description}
+							</p>
+						)}
+					</motion.div>
+				))}
+			</motion.div>
+		) : (
+			// List View
+			<motion.div layout className='space-y-2'>
+				{boards.map((board) => (
+					<motion.div
+						key={board.id}
+						layoutId={`board-${board.id}`}
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0 }}
+						onClick={() => router.push(`/boards/${board.id}`)}
+						className='bg-white dark:bg-neutral-800 rounded-lg p-4 cursor-pointer
+                       hover:shadow-md transition-all duration-200
+                       border border-neutral-200 dark:border-neutral-700'
+					>
+						<div className='flex items-center justify-between'>
+							<div>
+								<h3 className='font-semibold'>{board.title}</h3>
+								{board.description && (
+									<p className='text-neutral-600 dark:text-neutral-400 text-sm'>
+										{board.description}
+									</p>
+								)}
+							</div>
+							<p className='text-sm text-neutral-500'>
+								{board.lists?.length || 0} lists
+							</p>
+						</div>
+					</motion.div>
+				))}
+			</motion.div>
+		);
 	};
 
 	return (
-		<div className='space-y-6'>
-			<div className='flex items-center justify-between'>
+		<div className='max-w-7xl mx-auto px-4 py-8'>
+			{/* Header Section */}
+			<div className='flex items-center justify-between mb-8'>
 				<div>
 					<h1 className='text-3xl font-bold'>Boards</h1>
-					<p className='text-gray-600 dark:text-gray-300 mt-1'>
+					<p className='text-neutral-600 dark:text-neutral-400 mt-1'>
 						Manage and organize your projects
 					</p>
 				</div>
-				<Button variant='sketch' onClick={() => router.push('/boards/new')}>
-					<IconPlus className='mr-2 h-4 w-4' />
-					Create Board
-				</Button>
-				<BoardGrid boards={boards} onCreateBoard={handleCreateBoard} />
+				<div className='flex items-center gap-4'>
+					<BoardViewToggle view={view} setView={setView} />
+					<Button
+						onClick={() => router.push('/boards/new')}
+						className='flex items-center gap-2'
+					>
+						<Plus className='w-4 h-4' />
+						Create Board
+					</Button>
+				</div>
 			</div>
 
-			{loading ? (
-				<div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
-					{[...Array(3)].map((_, i) => (
-						<div
-							key={i}
-							className='h-32 rounded-lg bg-gray-200 dark:bg-neutral-800 animate-pulse'
-						/>
-					))}
-				</div>
-			) : (
-				<motion.div
-					variants={container}
-					initial='hidden'
-					animate='show'
-					className='grid grid-cols-1 md:grid-cols-3 gap-6'
-				>
-					{boards.length === 0 ? (
-						<motion.div variants={item} className='col-span-full'>
-							<div className='text-center py-12 bg-white dark:bg-neutral-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-neutral-700'>
-								<IconLayoutKanban className='h-12 w-12 mx-auto text-gray-400' />
-								<h3 className='mt-2 text-sm font-medium text-gray-900 dark:text-gray-100'>
-									No boards
-								</h3>
-								<p className='mt-1 text-sm text-gray-500 dark:text-gray-400'>
-									Get started by creating a new board
-								</p>
-								<div className='mt-6'>
-									<Button
-										variant='sketch'
-										onClick={() => router.push('/boards/new')}
-									>
-										<IconPlus className='mr-2 h-4 w-4' />
-										Create Board
-									</Button>
-								</div>
-							</div>
-						</motion.div>
-					) : (
-						boards.map((board) => (
-							<motion.div
-								key={board.id}
-								variants={item}
-								onClick={() => router.push(`/boards/${board.id}`)}
-								className='group cursor-pointer'
-							>
-								<div className='h-32 p-6 bg-white dark:bg-neutral-800 rounded-lg border border-gray-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors'>
-									<h3 className='font-semibold group-hover:text-blue-500 transition-colors'>
-										{board.title}
-									</h3>
-									<p className='mt-2 text-sm text-gray-600 dark:text-gray-400'>
-										Last updated{' '}
-										{new Date(board.updated_at).toLocaleDateString()}
-									</p>
-								</div>
-							</motion.div>
-						))
-					)}
-				</motion.div>
-			)}
+			{/* Boards Grid/List */}
+			{renderBoards()}
 		</div>
 	);
 }

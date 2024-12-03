@@ -1,11 +1,8 @@
-// app/(dashboard)/settings/security/page.tsx
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { WobbleCard } from '@/app/components/ui/wobble-card';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -14,50 +11,58 @@ import {
 	IconShieldLock,
 	IconTrash,
 } from '@tabler/icons-react';
-import type { SecuritySettings, Session } from '@/app/types/settings';
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardFooter,
+	CardHeader,
+	CardTitle,
+} from '@/components/ui/card';
 
-const mockSessions: Session[] = [
-	{
-		id: '1',
-		device: 'MacBook Pro',
-		browser: 'Chrome',
-		location: 'San Francisco, US',
-		lastActive: '2024-03-26T10:00:00Z',
-		current: true,
-	},
-	{
-		id: '2',
-		device: 'iPhone 13',
-		browser: 'Safari',
-		location: 'San Francisco, US',
-		lastActive: '2024-03-25T15:30:00Z',
-		current: false,
-	},
-];
+interface PasswordData {
+	currentPassword: string;
+	newPassword: string;
+	confirmPassword: string;
+}
+
+interface SecuritySettings {
+	twoFactorEnabled: boolean;
+	lastPasswordChange: string;
+	activeSessions: Session[];
+}
+
+interface Session {
+	id: string;
+	device: string;
+	browser: string;
+	location: string;
+	lastActive: string;
+	current: boolean;
+}
 
 export default function SecurityPage() {
 	const { toast } = useToast();
-	const [saving, setSaving] = useState(false);
-	const [loading2FA, setLoading2FA] = useState(false);
 	const [showChangePassword, setShowChangePassword] = useState(false);
-	const [sessions] = useState<Session[]>(mockSessions);
-	const [settings, setSettings] = useState<SecuritySettings>({
-		twoFactorEnabled: false,
-		lastPasswordChange: '2024-02-15T00:00:00Z',
-		activeSessions: sessions,
-	});
+	const [loading2FA, setLoading2FA] = useState(false);
+	const [saving, setSaving] = useState(false);
 
-	const [passwordData, setPasswordData] = useState({
+	const [passwordData, setPasswordData] = useState<PasswordData>({
 		currentPassword: '',
 		newPassword: '',
 		confirmPassword: '',
+	});
+
+	const [settings, setSettings] = useState<SecuritySettings>({
+		twoFactorEnabled: false,
+		lastPasswordChange: '2024-02-15T00:00:00Z',
+		activeSessions: mockSessions,
 	});
 
 	const handleChangePassword = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setSaving(true);
 		try {
-			// TODO: Implement password change API call
 			await new Promise((resolve) => setTimeout(resolve, 1000));
 			toast({
 				title: 'Success',
@@ -83,7 +88,6 @@ export default function SecurityPage() {
 	const handleToggle2FA = async () => {
 		setLoading2FA(true);
 		try {
-			// TODO: Implement 2FA toggle API call
 			await new Promise((resolve) => setTimeout(resolve, 1000));
 			setSettings((prev) => ({
 				...prev,
@@ -93,24 +97,19 @@ export default function SecurityPage() {
 				title: 'Success',
 				description: `Two-factor authentication ${settings.twoFactorEnabled ? 'disabled' : 'enabled'}.`,
 			});
-		} catch (error) {
-			toast({
-				title: 'Error',
-				description: 'Failed to update 2FA settings.',
-				variant: 'destructive',
-			});
 		} finally {
 			setLoading2FA(false);
 		}
 	};
-
 	const handleRevokeSession = async (sessionId: string) => {
 		try {
-			// TODO: Implement session revocation API call
+			// In a real app, this would make an API call
 			await new Promise((resolve) => setTimeout(resolve, 1000));
 			setSettings((prev) => ({
 				...prev,
-				activeSessions: prev.activeSessions.filter((s) => s.id !== sessionId),
+				activeSessions: prev.activeSessions.filter(
+					(session) => session.id !== sessionId
+				),
 			}));
 			toast({
 				title: 'Success',
@@ -124,17 +123,17 @@ export default function SecurityPage() {
 			});
 		}
 	};
-
 	return (
-		<WobbleCard>
-			<motion.div
-				initial={{ opacity: 0, y: 20 }}
-				animate={{ opacity: 1, y: 0 }}
-				className='p-6 space-y-8'
-			>
-				{/* Password Section */}
-				<section>
-					<h2 className='text-xl font-semibold mb-4'>Password</h2>
+		<div className='space-y-6'>
+			<Card>
+				<CardHeader>
+					<CardTitle>Change Password</CardTitle>
+					<CardDescription>
+						Update your account password and enable additional security measures
+					</CardDescription>
+				</CardHeader>
+
+				<CardContent>
 					{showChangePassword ? (
 						<form onSubmit={handleChangePassword} className='space-y-4'>
 							<Input
@@ -147,7 +146,6 @@ export default function SecurityPage() {
 										currentPassword: e.target.value,
 									}))
 								}
-								required
 							/>
 							<Input
 								type='password'
@@ -159,7 +157,6 @@ export default function SecurityPage() {
 										newPassword: e.target.value,
 									}))
 								}
-								required
 							/>
 							<Input
 								type='password'
@@ -171,7 +168,6 @@ export default function SecurityPage() {
 										confirmPassword: e.target.value,
 									}))
 								}
-								required
 							/>
 							<div className='flex gap-2'>
 								<Button variant='sketch' type='submit' disabled={saving}>
@@ -202,35 +198,40 @@ export default function SecurityPage() {
 							Change Password
 						</Button>
 					)}
-				</section>
+				</CardContent>
+			</Card>
 
-				{/* 2FA Section */}
-				<section>
-					<h2 className='text-xl font-semibold mb-4'>
-						Two-Factor Authentication
-					</h2>
-					<div className='flex items-center justify-between'>
-						<div>
-							<p className='text-sm text-neutral-500 dark:text-neutral-400'>
-								Add an extra layer of security to your account
-							</p>
-							<p className='text-sm text-neutral-500 dark:text-neutral-400'>
-								{settings.twoFactorEnabled
-									? 'Two-factor authentication is enabled'
-									: 'Two-factor authentication is disabled'}
-							</p>
-						</div>
-						<Switch
-							checked={settings.twoFactorEnabled}
-							onCheckedChange={handleToggle2FA}
-							disabled={loading2FA}
-						/>
+			<Card>
+				<CardHeader>
+					<CardTitle>Two-Factor Authentication</CardTitle>
+					<CardDescription>
+						Add an extra layer of security to your account
+					</CardDescription>
+				</CardHeader>
+				<CardContent className='flex items-center justify-between'>
+					<div>
+						<p className='text-sm text-neutral-500 dark:text-neutral-400'>
+							{settings.twoFactorEnabled
+								? 'Two-factor authentication is enabled'
+								: 'Two-factor authentication is disabled'}
+						</p>
 					</div>
-				</section>
+					<Switch
+						checked={settings.twoFactorEnabled}
+						onCheckedChange={handleToggle2FA}
+						disabled={loading2FA}
+					/>
+				</CardContent>
+			</Card>
 
-				{/* Active Sessions Section */}
-				<section>
-					<h2 className='text-xl font-semibold mb-4'>Active Sessions</h2>
+			<Card>
+				<CardHeader>
+					<CardTitle>Active Sessions</CardTitle>
+					<CardDescription>
+						Manage your active sessions across devices
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
 					<div className='space-y-4'>
 						{settings.activeSessions.map((session) => (
 							<div
@@ -265,31 +266,52 @@ export default function SecurityPage() {
 							</div>
 						))}
 					</div>
-				</section>
+				</CardContent>
+			</Card>
 
-				{/* Danger Zone */}
-				<section className='border-t pt-8'>
-					<h2 className='text-xl font-semibold mb-4 text-red-600'>
-						Danger Zone
-					</h2>
-					<div className='bg-red-50 dark:bg-red-950 p-4 rounded-lg'>
-						<h3 className='font-medium text-red-600 dark:text-red-400'>
-							Delete Account
-						</h3>
-						<p className='text-sm text-red-600/70 dark:text-red-400/70 mb-4'>
-							Once you delete your account, there is no going back. Please be
-							certain.
-						</p>
-						<Button
-							variant='outline'
-							className='text-red-600 hover:text-red-700 border-red-200 hover:border-red-300'
-						>
-							<IconTrash className='w-4 h-4 mr-2' />
-							Delete Account
-						</Button>
-					</div>
-				</section>
-			</motion.div>
-		</WobbleCard>
+			<Card>
+				<CardHeader>
+					<CardTitle className='text-red-600'>Danger Zone</CardTitle>
+					<CardDescription>
+						Irreversible and destructive actions
+					</CardDescription>
+				</CardHeader>
+				<CardContent className='bg-red-50 dark:bg-red-950 p-4 rounded-lg'>
+					<h3 className='font-medium text-red-600 dark:text-red-400'>
+						Delete Account
+					</h3>
+					<p className='text-sm text-red-600/70 dark:text-red-400/70 mb-4'>
+						Once you delete your account, there is no going back. Please be
+						certain.
+					</p>
+					<Button
+						variant='outline'
+						className='text-red-600 hover:text-red-700 border-red-200 hover:border-red-300'
+					>
+						<IconTrash className='w-4 h-4 mr-2' />
+						Delete Account
+					</Button>
+				</CardContent>
+			</Card>
+		</div>
 	);
 }
+
+const mockSessions = [
+	{
+		id: '1',
+		device: 'MacBook Pro',
+		browser: 'Chrome',
+		location: 'San Francisco, US',
+		lastActive: '2024-03-26T10:00:00Z',
+		current: true,
+	},
+	{
+		id: '2',
+		device: 'iPhone 13',
+		browser: 'Safari',
+		location: 'San Francisco, US',
+		lastActive: '2024-03-25T15:30:00Z',
+		current: false,
+	},
+];

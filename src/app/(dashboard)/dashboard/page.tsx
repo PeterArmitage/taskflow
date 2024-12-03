@@ -1,11 +1,10 @@
-// app/(dashboard)/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
-import { WobbleCard } from '@/app/components/ui/wobble-card';
 import { motion } from 'framer-motion';
 import { Board } from '@/app/types/boards';
 import { boardApi } from '@/app/api/board';
+import { InfiniteMovingCards } from '@/app/components/ui/infinite-moving-cards';
 
 export default function DashboardHome() {
 	const [boards, setBoards] = useState<Board[]>([]);
@@ -26,6 +25,41 @@ export default function DashboardHome() {
 		}
 	};
 
+	// Format your metrics data for the infinite moving cards
+	const metricsItems = [
+		{
+			quote: '12',
+			name: 'Active Tasks',
+			title: 'Current tasks in progress across all boards',
+		},
+		{
+			quote: '8',
+			name: 'Completed This Week',
+			title: 'Tasks completed in the last 7 days',
+		},
+		{
+			quote: '5',
+			name: 'Team Members',
+			title: 'Active collaborators on your projects',
+		},
+		// Adding extra items to ensure smooth infinite scrolling
+		{
+			quote: '24',
+			name: 'Total Tasks',
+			title: 'Combined active and completed tasks',
+		},
+		{
+			quote: '3',
+			name: 'Active Boards',
+			title: 'Current project boards in use',
+		},
+		{
+			quote: '92%',
+			name: 'On-Time Completion',
+			title: 'Tasks completed within deadline',
+		},
+	];
+
 	return (
 		<div className='space-y-8'>
 			<motion.div
@@ -38,21 +72,15 @@ export default function DashboardHome() {
 				</p>
 			</motion.div>
 
-			<div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
-				<WobbleCard className='p-6'>
-					<h3 className='text-lg font-semibold mb-2'>Active Tasks</h3>
-					<p className='text-3xl font-bold'>12</p>
-				</WobbleCard>
-
-				<WobbleCard className='p-6'>
-					<h3 className='text-lg font-semibold mb-2'>Completed This Week</h3>
-					<p className='text-3xl font-bold'>8</p>
-				</WobbleCard>
-
-				<WobbleCard className='p-6'>
-					<h3 className='text-lg font-semibold mb-2'>Team Members</h3>
-					<p className='text-3xl font-bold'>5</p>
-				</WobbleCard>
+			{/* Metrics Section with Infinite Moving Cards */}
+			<div className='relative min-h-[12rem] w-full overflow-hidden bg-slate-950'>
+				<InfiniteMovingCards
+					items={metricsItems}
+					direction='left'
+					speed='slow'
+					pauseOnHover={true}
+					className='py-4'
+				/>
 			</div>
 
 			{/* Recent Activity Section */}
@@ -67,6 +95,9 @@ export default function DashboardHome() {
 				<div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
 					{/* Add your quick action buttons here */}
 				</div>
+			</div>
+			<div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+				{/* Other dashboard widgets */}
 			</div>
 		</div>
 	);

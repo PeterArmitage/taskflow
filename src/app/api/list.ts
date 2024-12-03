@@ -1,4 +1,5 @@
 // api/list.ts
+
 import { List } from '@/app/types/boards';
 import { api, withTrailingSlash, handleApiError } from './api';
 

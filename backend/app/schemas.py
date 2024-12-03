@@ -19,12 +19,6 @@ class BoardCreate(BaseModel):
 class BoardUpdate(BoardBase):
     title: Optional[str] = None
 
-class Board(BoardBase):
-    id: int
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-
-    model_config = ConfigDict(from_attributes=True)
 
 class ListBase(BaseModel):
     title: str
@@ -38,12 +32,7 @@ class ListUpdate(BaseModel):
     title: Optional[str] = None
     board_id: Optional[int] = None
 
-class List(ListBase):
-    id: int
-    created_at: datetime
-    updated_at: Optional[datetime] = None
 
-    model_config = ConfigDict(from_attributes=True)
 
 class CardBase(BaseModel):
     title: str
@@ -201,3 +190,20 @@ class UserUpdate(BaseModel):
     bio: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)    
+    
+class List(ListBase):
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    cards: PyList[Card] = []
+    model_config = ConfigDict(from_attributes=True)   
+    
+class Board(BoardBase):
+    id: int
+    description: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    lists: PyList[List] = []  
+
+    model_config = ConfigDict(from_attributes=True)
+    

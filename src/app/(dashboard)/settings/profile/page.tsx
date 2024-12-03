@@ -1,8 +1,6 @@
-// app/(dashboard)/settings/profile/page.tsx
 'use client';
 
 import { useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar } from '@/app/components/ui/avatar';
@@ -11,8 +9,14 @@ import { useAuth } from '@/app/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/app/api/auth';
 import { useToast } from '@/hooks/use-toast';
-import { WobbleCard } from '@/app/components/ui/wobble-card';
 import { ProfileUpdateData } from '@/app/types/auth';
+import {
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+	CardFooter,
+} from '@/components/ui/card';
 
 interface ProfileFormData {
 	username: string;
@@ -57,13 +61,11 @@ export default function ProfileSettings() {
 				bio: formData.bio,
 			};
 
-			// Update profile information
 			const updatedUser = await authApi.updateProfile(
 				user.id.toString(),
 				updateData
 			);
 
-			// If there's a new avatar, update it
 			if (avatarFile) {
 				const userWithAvatar = await authApi.updateAvatar(
 					user.id.toString(),
@@ -72,7 +74,6 @@ export default function ProfileSettings() {
 				updatedUser.avatar_url = userWithAvatar.avatar_url;
 			}
 
-			// Update the user in auth context
 			updateUser(updatedUser);
 
 			toast({
@@ -102,23 +103,22 @@ export default function ProfileSettings() {
 			</div>
 		);
 	}
+
 	return (
-		<WobbleCard>
-			<motion.div
-				initial={{ opacity: 0, y: 20 }}
-				animate={{ opacity: 1, y: 0 }}
-				className='max-w-2xl relative'
-			>
-				{/* Close Button */}
-				<button
-					onClick={handleClose}
-					className='absolute top-0 right-0 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors'
-				>
-					<IconX className='w-5 h-5' />
-				</button>
+		<Card className='max-w-2xl mx-auto'>
+			<CardHeader>
+				<div className='flex justify-between items-center'>
+					<CardTitle>Profile Settings</CardTitle>
+					<button
+						onClick={handleClose}
+						className='p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors'
+					>
+						<IconX className='w-5 h-5' />
+					</button>
+				</div>
+			</CardHeader>
 
-				<h1 className='text-2xl font-bold mb-6'>Profile Settings</h1>
-
+			<CardContent>
 				<div className='mb-8'>
 					<div className='flex items-center gap-6'>
 						<Avatar
@@ -194,7 +194,7 @@ export default function ProfileSettings() {
 						</div>
 					</div>
 
-					<div className='flex gap-4'>
+					<CardFooter className='flex gap-4 px-0'>
 						<Button variant='sketch' type='submit' disabled={saving}>
 							{saving ? (
 								<>
@@ -208,9 +208,9 @@ export default function ProfileSettings() {
 						<Button variant='outline' type='button' onClick={handleClose}>
 							Cancel
 						</Button>
-					</div>
+					</CardFooter>
 				</form>
-			</motion.div>
-		</WobbleCard>
+			</CardContent>
+		</Card>
 	);
 }

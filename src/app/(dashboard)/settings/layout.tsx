@@ -3,7 +3,12 @@
 
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { IconUser, IconMail, IconLock } from '@tabler/icons-react';
+import {
+	IconUser,
+	IconMail,
+	IconLock,
+	IconAdjustments,
+} from '@tabler/icons-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -25,6 +30,12 @@ const settingsTabs = [
 		href: '/settings/security',
 		icon: IconLock,
 		description: 'Update your password and security settings',
+	},
+	{
+		title: 'Advanced',
+		href: '/settings/advanced',
+		icon: IconAdjustments,
+		description: 'Configure advanced settings and preferences',
 	},
 ];
 

@@ -1,11 +1,11 @@
 // components/dashboard/boards/create-list-form.tsx
-'use client';
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Button } from '@/app/components/ui/button';
-import { IconLoader2 } from '@tabler/icons-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { listApi } from '@/app/api/list';
+import { useToast } from '@/hooks/use-toast';
 
 interface CreateListFormProps {
 	boardId: number;
@@ -20,25 +20,29 @@ export function CreateListForm({
 }: CreateListFormProps) {
 	const [title, setTitle] = useState('');
 	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const { toast } = useToast();
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!title.trim()) {
-			setError('Title is required');
+			toast({
+				title: 'Error',
+				description: 'Title is required',
+				variant: 'destructive',
+			});
 			return;
 		}
-
 		try {
 			setLoading(true);
-			setError(null);
-			await listApi.createList({
+			console.log('Creating list with title:', title, 'for board:', boardId);
+			const response = await listApi.createList({
 				title: title.trim(),
-				board_id: Number(boardId),
+				board_id: boardId,
 			});
+			console.log('List creation response:', response);
 			onSuccess();
+			console.log('onSuccess called - board should refresh');
 		} catch (error) {
-			setError('Failed to create list');
 			console.error('Create list error:', error);
 		} finally {
 			setLoading(false);
@@ -49,27 +53,21 @@ export function CreateListForm({
 		<motion.form
 			initial={{ opacity: 0, y: 20 }}
 			animate={{ opacity: 1, y: 0 }}
-			className='bg-gray-100 dark:bg-neutral-800 p-3 rounded-lg'
+			className='bg-white dark:bg-neutral-800 p-3 rounded-lg shadow-sm'
 			onSubmit={handleSubmit}
 		>
-			<input
+			<Input
 				type='text'
 				value={title}
 				onChange={(e) => setTitle(e.target.value)}
 				placeholder='Enter list title...'
-				className='w-full p-2 rounded border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 mb-3'
+				className='mb-3'
 				autoFocus
 			/>
 
-			{error && <p className='text-red-500 text-sm mb-2'>{error}</p>}
-
-			<div className='flex items-center gap-2'>
-				<Button type='submit' variant='sketch' disabled={loading}>
-					{loading ? (
-						<IconLoader2 className='w-4 h-4 animate-spin' />
-					) : (
-						'Add List'
-					)}
+			<div className='flex gap-2'>
+				<Button type='submit' variant='default' disabled={loading}>
+					{loading ? 'Creating...' : 'Add List'}
 				</Button>
 				<Button type='button' variant='outline' onClick={onCancel}>
 					Cancel

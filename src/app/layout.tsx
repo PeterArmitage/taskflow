@@ -1,3 +1,4 @@
+// app/layout.tsx
 import type { Metadata } from 'next';
 import { Inter, Montserrat } from 'next/font/google';
 import './globals.css';
@@ -5,6 +6,7 @@ import '@radix-ui/themes/styles.css';
 import { Theme } from '@radix-ui/themes';
 import { ThemeProvider } from './providers/theme-provider';
 import { AuthProvider } from './providers/auth-provider';
+import { BoardProvider } from './contexts/BoardContext';
 
 const inter = Inter({ subsets: ['latin'] });
 const montserrat = Montserrat({
@@ -30,7 +32,9 @@ export default function RootLayout({
 			>
 				<ThemeProvider>
 					<Theme>
-						<AuthProvider>{children}</AuthProvider>
+						<AuthProvider>
+							<BoardProvider>{children}</BoardProvider>
+						</AuthProvider>
 					</Theme>
 				</ThemeProvider>
 			</body>

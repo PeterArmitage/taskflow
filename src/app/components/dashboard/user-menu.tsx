@@ -10,6 +10,7 @@ import {
 	IconLock,
 	IconLogout,
 	IconChevronRight,
+	IconAdjustments,
 } from '@tabler/icons-react';
 import { User } from '@/app/types/auth';
 import { Avatar } from '../ui/avatar';
@@ -17,6 +18,13 @@ import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/hooks/useAuth';
 import { useState } from 'react';
+
+interface MenuItem {
+	icon: typeof IconUser;
+	label: string;
+	onClick: () => void;
+	className?: string;
+}
 
 interface UserMenuProps {
 	user: User;
@@ -27,7 +35,7 @@ export function UserMenu({ user }: UserMenuProps) {
 	const { signout } = useAuth();
 	const [open, setOpen] = useState(false);
 
-	const menuItems = [
+	const menuItems: MenuItem[] = [
 		{
 			icon: IconUser,
 			label: 'Profile',
@@ -53,13 +61,14 @@ export function UserMenu({ user }: UserMenuProps) {
 			},
 		},
 		{
-			icon: IconSettings,
-			label: 'Settings',
+			icon: IconAdjustments,
+			label: 'Advanced Settings',
 			onClick: () => {
-				router.push('/settings');
+				router.push('/settings/advanced');
 				setOpen(false);
 			},
 		},
+
 		{
 			icon: IconLogout,
 			label: 'Sign Out',

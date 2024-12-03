@@ -1,14 +1,57 @@
-// app/(dashboard)/settings/email/page.tsx
 'use client';
 
-import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { WobbleCard } from '@/app/components/ui/wobble-card';
-import { EmailPreferences } from '@/app/types/settings';
 import { useToast } from '@/hooks/use-toast';
 import { IconLoader2 } from '@tabler/icons-react';
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardFooter,
+	CardHeader,
+	CardTitle,
+} from '@/components/ui/card';
+
+interface EmailPreferences {
+	notifications: {
+		cardDue: boolean;
+		mentionedInCard: boolean;
+		cardAssigned: boolean;
+		boardInvites: boolean;
+		weeklyDigest: boolean;
+	};
+	marketing: {
+		newsletter: boolean;
+		productUpdates: boolean;
+		tips: boolean;
+	};
+}
+
+interface SwitchItemProps {
+	title: string;
+	description: string;
+	checked: boolean;
+	onCheckedChange: (checked: boolean) => void;
+}
+
+const SwitchItem = ({
+	title,
+	description,
+	checked,
+	onCheckedChange,
+}: SwitchItemProps) => (
+	<div className='flex items-center justify-between'>
+		<div>
+			<p className='font-medium'>{title}</p>
+			<p className='text-sm text-neutral-500 dark:text-neutral-400'>
+				{description}
+			</p>
+		</div>
+		<Switch checked={checked} onCheckedChange={onCheckedChange} />
+	</div>
+);
 
 export default function EmailPreferencesPage() {
 	const { toast } = useToast();
@@ -31,8 +74,7 @@ export default function EmailPreferencesPage() {
 	const handleSave = async () => {
 		setSaving(true);
 		try {
-			// TODO: Implement API call
-			await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
+			await new Promise((resolve) => setTimeout(resolve, 1000));
 			toast({
 				title: 'Success',
 				description: 'Email preferences updated successfully.',
@@ -49,69 +91,56 @@ export default function EmailPreferencesPage() {
 	};
 
 	return (
-		<WobbleCard>
-			<motion.div
-				initial={{ opacity: 0, y: 20 }}
-				animate={{ opacity: 1, y: 0 }}
-				className='p-6 space-y-8'
-			>
-				<div>
-					<h2 className='text-xl font-semibold mb-6'>Email Notifications</h2>
-					<div className='space-y-4'>
-						{Object.entries(preferences.notifications).map(([key, value]) => (
-							<div key={key} className='flex items-center justify-between'>
-								<div>
-									<p className='font-medium'>{formatLabel(key)}</p>
-									<p className='text-sm text-neutral-500 dark:text-neutral-400'>
-										{getNotificationDescription(key)}
-									</p>
-								</div>
-								<Switch
-									checked={value}
-									onCheckedChange={(checked) => {
-										setPreferences((prev) => ({
-											...prev,
-											notifications: {
-												...prev.notifications,
-												[key]: checked,
-											},
-										}));
-									}}
-								/>
-							</div>
-						))}
-					</div>
-				</div>
+		<div className='space-y-6'>
+			<Card>
+				<CardHeader>
+					<CardTitle>Task Notifications</CardTitle>
+					<CardDescription>
+						Configure how you receive task-related notifications
+					</CardDescription>
+				</CardHeader>
+				<CardContent className='space-y-4'>
+					{Object.entries(preferences.notifications).map(([key, value]) => (
+						<SwitchItem
+							key={key}
+							title={formatLabel(key)}
+							description={getNotificationDescription(key)}
+							checked={value}
+							onCheckedChange={(checked) =>
+								setPreferences((prev) => ({
+									...prev,
+									notifications: { ...prev.notifications, [key]: checked },
+								}))
+							}
+						/>
+					))}
+				</CardContent>
+			</Card>
 
-				<div>
-					<h2 className='text-xl font-semibold mb-6'>Marketing Emails</h2>
-					<div className='space-y-4'>
-						{Object.entries(preferences.marketing).map(([key, value]) => (
-							<div key={key} className='flex items-center justify-between'>
-								<div>
-									<p className='font-medium'>{formatLabel(key)}</p>
-									<p className='text-sm text-neutral-500 dark:text-neutral-400'>
-										{getMarketingDescription(key)}
-									</p>
-								</div>
-								<Switch
-									checked={value}
-									onCheckedChange={(checked) => {
-										setPreferences((prev) => ({
-											...prev,
-											marketing: {
-												...prev.marketing,
-												[key]: checked,
-											},
-										}));
-									}}
-								/>
-							</div>
-						))}
-					</div>
-				</div>
-
-				<div className='flex justify-end'>
+			<Card>
+				<CardHeader>
+					<CardTitle>Marketing Communications</CardTitle>
+					<CardDescription>
+						Manage your marketing email preferences
+					</CardDescription>
+				</CardHeader>
+				<CardContent className='space-y-4'>
+					{Object.entries(preferences.marketing).map(([key, value]) => (
+						<SwitchItem
+							key={key}
+							title={formatLabel(key)}
+							description={getMarketingDescription(key)}
+							checked={value}
+							onCheckedChange={(checked) =>
+								setPreferences((prev) => ({
+									...prev,
+									marketing: { ...prev.marketing, [key]: checked },
+								}))
+							}
+						/>
+					))}
+				</CardContent>
+				<CardFooter>
 					<Button variant='sketch' onClick={handleSave} disabled={saving}>
 						{saving ? (
 							<>
@@ -122,9 +151,9 @@ export default function EmailPreferencesPage() {
 							'Save Changes'
 						)}
 					</Button>
-				</div>
-			</motion.div>
-		</WobbleCard>
+				</CardFooter>
+			</Card>
+		</div>
 	);
 }
 

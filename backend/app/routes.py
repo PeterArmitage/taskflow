@@ -62,22 +62,58 @@ def read_boards(
 # Get a specific board by ID
 
 @router.get("/boards/{board_id}", response_model=schemas.Board)
-def read_board(board_id: int, current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
+def read_board(
+    board_id: int, 
+    current_user: models.User = Depends(auth.get_current_user), 
+    db: Session = Depends(get_db)
+):
+    # Add debug logging
+    print(f"Fetching board {board_id} for user {current_user.id}")
+    
+    # Get the board with owner check
     board = db.query(models.Board).filter(models.Board.id == board_id).first()
-    if board is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Board not found")
-    
-    print(f"Board owner_id: {board.owner_id}, Current user id: {current_user.id}")  # Debug print
-    
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+
+    # Check permissions
     if board.owner_id != current_user.id:
         member = db.query(models.BoardMember).filter(
             models.BoardMember.board_id == board_id,
             models.BoardMember.user_id == current_user.id
         ).first()
         if not member:
-            print(f"User {current_user.id} not authorized to access board {board_id}")  # Debug print
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this board")
+            raise HTTPException(
+                status_code=403, 
+                detail="Not authorized to access this board"
+            )
+
+    # Get lists with cards in a single query to improve performance
+    lists = (
+        db.query(models.List)
+        .filter(models.List.board_id == board_id)
+        .order_by(models.List.created_at)
+        .all()
+    )
     
+    # Log the found lists
+    print(f"Found {len(lists)} lists for board {board_id}")
+
+    # Load cards for each list
+    for list_item in lists:
+        cards = (
+            db.query(models.Card)
+            .filter(models.Card.list_id == list_item.id)
+            .order_by(models.Card.created_at)
+            .all()
+        )
+        list_item.cards = cards
+        print(f"Found {len(cards)} cards for list {list_item.id}")
+
+    # Attach lists to board
+    board.lists = lists
+
+    # Log the final board state
+    print(f"Returning board with {len(board.lists)} lists")
     return board
 
 # Update a board

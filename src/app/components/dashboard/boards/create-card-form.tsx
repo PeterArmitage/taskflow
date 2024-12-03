@@ -3,11 +3,11 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Button } from '@/app/components/ui/button';
-import { IconLoader2 } from '@tabler/icons-react';
+import { Button } from '@/components/ui/button';
 import { cardApi } from '@/app/api/card';
+import { useToast } from '@/hooks/use-toast';
 
-interface CreateCardFormProps {
+export interface CreateCardFormProps {
 	listId: number;
 	onCancel: () => void;
 	onSuccess: () => void;
@@ -20,26 +20,32 @@ export function CreateCardForm({
 }: CreateCardFormProps) {
 	const [title, setTitle] = useState('');
 	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const { toast } = useToast();
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!title.trim()) {
-			setError('Title is required');
-			return;
-		}
+		if (!title.trim()) return;
 
 		try {
 			setLoading(true);
-			setError(null);
 			await cardApi.createCard({
 				title: title.trim(),
 				list_id: listId,
 			});
+
+			toast({
+				title: 'Success',
+				description: 'Card created successfully',
+			});
+
 			onSuccess();
 		} catch (error) {
-			setError('Failed to create card');
-			console.error('Create card error:', error);
+			console.error('Failed to create card:', error);
+			toast({
+				title: 'Error',
+				description: 'Failed to create card. Please try again.',
+				variant: 'destructive',
+			});
 		} finally {
 			setLoading(false);
 		}
@@ -61,15 +67,9 @@ export function CreateCardForm({
 				autoFocus
 			/>
 
-			{error && <p className='text-red-500 text-sm mb-2'>{error}</p>}
-
 			<div className='flex items-center gap-2'>
-				<Button type='submit' variant='sketch' disabled={loading}>
-					{loading ? (
-						<IconLoader2 className='w-4 h-4 animate-spin' />
-					) : (
-						'Add Card'
-					)}
+				<Button type='submit' disabled={loading}>
+					{loading ? 'Adding...' : 'Add Card'}
 				</Button>
 				<Button type='button' variant='outline' onClick={onCancel}>
 					Cancel
