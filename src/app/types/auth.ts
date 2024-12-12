@@ -7,6 +7,7 @@ export interface User {
 	avatar_url?: string;
 	name?: string;
 	bio?: string;
+	token?: string;
 }
 
 export interface AuthFormData {

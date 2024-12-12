@@ -1,7 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, Label as CardLabel, Comment } from '@/app/types/boards';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Card } from '@/app/types/boards';
+import { WebSocketMessage } from '@/app/types/websocket';
+import { BoardActivity } from '@/app/types/boards';
+import { Comment } from '@/app/types/comments';
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+} from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
 	IconCalendar,
@@ -14,22 +23,34 @@ import {
 	IconPaperclip,
 } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
-import { Editor } from './editor';
-import { DatePicker } from '@/components/ui/date-picker';
+import { useAuth } from '@/app/hooks/useAuth';
+import { useWebSocket } from '@/app/hooks/use-websocket';
+import { Editor, EditorRef } from './editor';
+import { CustomDatePicker } from '@/components/ui/custom-date-picker';
 import { Label } from '@/components/ui/label';
-import { cardApi } from '@/app/api/card';
 import { useToast } from '@/hooks/use-toast';
 import { LabelManager } from './label-manager';
 import { Comments } from './comments';
 import { Nullable, toNullable, DateHelper } from '@/app/types/helpers';
 import { cn } from '@/lib/utils';
+import { ActivityFeed } from './activity-feed';
+import { cardApi } from '@/app/api/card';
+import {
+	adaptBoardComment,
+	adaptBoardActivity,
+} from '@/app/utils/type-adapters';
+import { BaseActivity } from '@/app/types/activity';
 
-// Type definitions for better type safety
 interface CardUpdate {
 	title?: string;
 	description?: string;
 	due_date?: Nullable<string>;
-	labels?: CardLabel[];
+	labels?: Array<{
+		id: number;
+		name: string;
+		color: string;
+		card_id: number;
+	}>;
 	comments?: Comment[];
 }
 
@@ -50,7 +71,7 @@ export function CardDetail({
 	onDelete,
 	className,
 }: CardDetailProps) {
-	// Enhanced state management with proper typing
+	const [activeTab, setActiveTab] = useState('details');
 	const [isEditing, setIsEditing] = useState(false);
 	const [title, setTitle] = useState(card.title);
 	const [description, setDescription] = useState(card.description || '');
@@ -58,22 +79,100 @@ export function CardDetail({
 		toNullable(card.due_date)
 	);
 	const [isSaving, setIsSaving] = useState(false);
+	const { user } = useAuth();
 	const { toast } = useToast();
+	const editorRef = useRef<EditorRef>(null);
 
-	const updateCard = (card: Card, updates: Partial<CardUpdate>): Card => {
-		return {
-			...card,
-			...updates,
-			// Ensure we handle undefined values correctly
-			due_date:
-				updates.due_date === undefined ? card.due_date : updates.due_date,
-			labels: updates.labels === undefined ? card.labels : updates.labels,
-			comments:
-				updates.comments === undefined ? card.comments : updates.comments,
-		};
-	};
-	// Handlers with proper error management
-	const handleSave = useCallback(async () => {
+	const handleWebSocketMessage = useCallback(
+		(message: WebSocketMessage) => {
+			if (!message || !card) return;
+
+			switch (message.type) {
+				case 'comment': {
+					const updatedComments =
+						message.action === 'deleted'
+							? (card.comments || []).filter(
+									(c) => c.id !== (message.data as Comment).id
+								)
+							: [
+									...(card.comments || []),
+									adaptBoardComment(message.data as Comment),
+								];
+
+					onUpdate({
+						...card,
+						comments: updatedComments,
+					});
+					break;
+				}
+
+				case 'activity': {
+					// Explicitly cast the activity data and ensure type safety
+					const activityData = adaptBoardActivity(
+						message.data as BoardActivity
+					);
+					const updatedActivities = [
+						...(card.activities || []),
+						activityData as BaseActivity, // Explicitly cast to the base activity type
+					];
+
+					onUpdate({
+						...card,
+						activities: updatedActivities,
+					});
+					break;
+				}
+			}
+		},
+		[card, onUpdate]
+	);
+
+	const { isConnected } = useWebSocket({
+		cardId: card.id,
+		token: user?.token || '',
+		onMessage: handleWebSocketMessage,
+	});
+
+	// const handleCommentUpdate = useCallback(
+	// 	(message: WebSocketMessage) => {
+	// 		if (message.type !== 'comment') return;
+
+	// 		onUpdate({
+	// 			...card,
+	// 			comments:
+	// 				message.action === 'deleted'
+	// 					? (card.comments || []).filter(
+	// 							(c) => c.id !== (message.data as Comment).id
+	// 						)
+	// 					: message.action === 'updated'
+	// 						? (card.comments || []).map((c) =>
+	// 								c.id === (message.data as Comment).id
+	// 									? adaptBoardComment(message.data as Comment)
+	// 									: c
+	// 							)
+	// 						: [
+	// 								...(card.comments || []),
+	// 								adaptBoardComment(message.data as Comment),
+	// 							],
+	// 		});
+	// 	},
+	// 	[card, onUpdate]
+	// );
+
+	// const handleActivityUpdate = useCallback(
+	// 	(message: WebSocketMessage) => {
+	// 		if (message.type !== 'activity') return;
+
+	// 		const activityData = adaptBoardActivity(message.data as BoardActivity);
+	// 		onUpdate({
+	// 			...card,
+	// 			activities: [...(card.activities || []), activityData],
+	// 		});
+	// 	},
+	// 	[card, onUpdate]
+	// );
+
+	const handleSave = async () => {
 		if (!title.trim()) {
 			toast({
 				title: 'Error',
@@ -93,7 +192,6 @@ export function CardDetail({
 
 			const updatedCard = await cardApi.updateCard(card.id, updateData);
 			onUpdate(updatedCard);
-
 			setIsEditing(false);
 			toast({
 				title: 'Success',
@@ -109,7 +207,28 @@ export function CardDetail({
 		} finally {
 			setIsSaving(false);
 		}
-	}, [card.id, title, description, dueDate, onUpdate, toast]);
+	};
+
+	const handleDateChange = (newDate: Nullable<string>) => {
+		setDueDate(newDate);
+		onUpdate({
+			...card,
+			due_date: newDate,
+		} as Card);
+	};
+
+	const updateCard = (card: Card, updates: Partial<CardUpdate>): Card => {
+		return {
+			...card,
+			...updates,
+			// Ensure we handle undefined values correctly
+			due_date:
+				updates.due_date === undefined ? card.due_date : updates.due_date,
+			labels: updates.labels === undefined ? card.labels : updates.labels,
+			comments:
+				updates.comments === undefined ? card.comments : updates.comments,
+		};
+	};
 
 	const handleDeleteClick = async () => {
 		if (!window.confirm('Are you sure you want to delete this card?')) return;
@@ -134,9 +253,38 @@ export function CardDetail({
 		}
 	};
 
+	const handleDescriptionChange = useCallback((newDescription: string) => {
+		setDescription(newDescription);
+	}, []);
+
+	// Focus management
+	useEffect(() => {
+		if (isOpen && isEditing && editorRef.current) {
+			editorRef.current.focus();
+		}
+	}, [isOpen, isEditing]);
+
+	const connectionIndicator = isConnected ? (
+		<div className='absolute top-2 right-2 flex items-center gap-2'>
+			<div className='w-2 h-2 rounded-full bg-green-500' />
+			<span className='text-xs text-green-500'>Connected</span>
+		</div>
+	) : null;
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
+			{connectionIndicator}
 			<DialogContent className={cn('max-w-4xl p-0', className)}>
+				<DialogHeader>
+					<DialogTitle className='sr-only'>
+						{isEditing
+							? `Edit Card: ${card.title}`
+							: `Card Details: ${card.title}`}
+					</DialogTitle>
+					<DialogDescription className='sr-only'>
+						Manage card details including title, description, due date, and
+						other properties
+					</DialogDescription>
+				</DialogHeader>
 				<AnimatePresence mode='wait'>
 					<motion.div
 						initial={{ opacity: 0, y: 20 }}
@@ -206,10 +354,14 @@ export function CardDetail({
 									<div className='space-y-3'>
 										<Label>Description</Label>
 										<Editor
+											ref={editorRef}
 											content={description}
-											onChange={setDescription}
+											onChange={handleDescriptionChange}
 											placeholder='Add a more detailed description...'
 											readOnly={!isEditing}
+											className='min-h-[150px] p-3 rounded-lg border border-neutral-200 
+                        dark:border-neutral-700 focus:border-blue-500 
+                        focus:ring-1 focus:ring-blue-500'
 										/>
 									</div>
 
@@ -219,14 +371,13 @@ export function CardDetail({
 											<IconCalendar className='w-4 h-4' />
 											Due Date
 										</Label>
-										<DatePicker
+										<CustomDatePicker
 											value={dueDate}
-											onChange={setDueDate}
+											onChange={handleDateChange}
 											disabled={!isEditing}
 											className='w-full'
 										/>
 									</div>
-
 									{/* Labels Section */}
 									<div className='space-y-3'>
 										<Label className='flex items-center gap-2'>
@@ -258,22 +409,38 @@ export function CardDetail({
 									<div className='space-y-3'>
 										<Label className='flex items-center gap-2'>
 											<IconMessageCircle className='w-4 h-4' />
-											Comments
+											Comments ({card.comments?.length || 0})
 										</Label>
 										<Comments
 											cardId={card.id}
-											comments={card.comments || []}
-											onUpdate={(comments) => {
-												onUpdate(updateCard(card, { comments }));
+											// Safely handle potentially undefined comments array
+											comments={(card.comments || []).map((comment) =>
+												adaptBoardComment(comment)
+											)}
+											onUpdate={(newComments) => {
+												console.log('Updating comments:', newComments);
+												onUpdate({
+													...card,
+													comments: newComments.map((comment) => ({
+														...comment,
+														updated_at:
+															comment.updated_at || comment.created_at,
+													})),
+												});
 											}}
 										/>
 									</div>
 								</TabsContent>
 
 								<TabsContent value='activity' className='p-6'>
-									<div className='text-neutral-500'>
-										Activity log coming soon...
-									</div>
+									<ActivityFeed
+										cardId={card.id}
+										activities={card.activities?.map(adaptBoardActivity) || []}
+										// Safely handle potentially undefined comments array here too
+										comments={
+											(card.comments || []).map(adaptBoardComment) || []
+										}
+									/>
 								</TabsContent>
 							</Tabs>
 						</div>

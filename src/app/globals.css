@@ -111,3 +111,30 @@ body {
 	color: #9ca3af; /* text-gray-400 */
 	pointer-events: none;
 }
+
+.date-picker-popover {
+	z-index: 1000 !important;
+}
+.date-picker-popper {
+	z-index: 100;
+}
+
+.react-datepicker {
+	@apply bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-lg;
+}
+
+.react-datepicker__header {
+	@apply bg-neutral-50 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700 rounded-t-lg;
+}
+
+.react-datepicker__day {
+	@apply hover:bg-neutral-100 dark:hover:bg-neutral-800;
+}
+
+.react-datepicker__day--selected {
+	@apply bg-blue-500 text-white hover:bg-blue-600;
+}
+
+.react-datepicker__day--disabled {
+	@apply text-neutral-300 dark:text-neutral-600 hover:bg-transparent cursor-not-allowed;
+}

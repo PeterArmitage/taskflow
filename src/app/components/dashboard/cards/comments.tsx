@@ -1,26 +1,45 @@
-'use client';
-
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/app/components/ui/avatar';
-import { Comment } from '@/app/types/boards';
-import { useAuth } from '@/app/hooks/useAuth';
-import { IconLoader2, IconTrash, IconEdit } from '@tabler/icons-react';
+import {
+	IconLoader2,
+	IconTrash,
+	IconEdit,
+	IconCheck,
+	IconX,
+} from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
+import { Comment, OptimisticComment } from '@/app/types/comments';
+import { useAuth } from '@/app/hooks/useAuth';
+import { commentApi } from '@/app/api/comments';
+import { useToast } from '@/hooks/use-toast';
+import { CommentUser } from '@/app/types/user';
 
-interface CommentItemProps {
-	comment: Comment;
-	onDelete: () => Promise<void>;
-	onUpdate: (content: string) => Promise<void>;
+interface CommentsProps {
+	cardId: number;
+	comments: Comment[];
+	onUpdate: (comments: Comment[]) => void;
 }
 
-// Individual comment component
-const CommentItem = ({ comment, onDelete, onUpdate }: CommentItemProps) => {
+interface CommentItemProps {
+	comment: Comment | OptimisticComment;
+	onDelete: (id: number | string) => Promise<void>;
+	onUpdate: (id: number | string, content: string) => Promise<void>;
+	isOptimistic?: boolean;
+}
+
+const CommentItem = ({
+	comment,
+	onDelete,
+	onUpdate,
+	isOptimistic,
+}: CommentItemProps) => {
 	const { user } = useAuth();
 	const [isEditing, setIsEditing] = useState(false);
 	const [content, setContent] = useState(comment.content);
 	const [isLoading, setIsLoading] = useState(false);
+	const { toast } = useToast();
 
 	const handleUpdate = async () => {
 		if (!content.trim() || content === comment.content) {
@@ -30,10 +49,29 @@ const CommentItem = ({ comment, onDelete, onUpdate }: CommentItemProps) => {
 
 		try {
 			setIsLoading(true);
-			await onUpdate(content);
+			await onUpdate(comment.id, content.trim());
 			setIsEditing(false);
+		} catch (error) {
+			toast({
+				title: 'Error',
+				description: 'Failed to update comment. Please try again.',
+				variant: 'destructive',
+			});
 		} finally {
 			setIsLoading(false);
+		}
+	};
+
+	const handleDelete = async () => {
+		try {
+			setIsLoading(true);
+			await onDelete(comment.id);
+		} catch (error) {
+			toast({
+				title: 'Error',
+				description: 'Failed to delete comment. Please try again.',
+				variant: 'destructive',
+			});
 		}
 	};
 
@@ -42,7 +80,7 @@ const CommentItem = ({ comment, onDelete, onUpdate }: CommentItemProps) => {
 			initial={{ opacity: 0, y: 20 }}
 			animate={{ opacity: 1, y: 0 }}
 			exit={{ opacity: 0, y: -20 }}
-			className='flex gap-3 group'
+			className={`flex gap-3 group ${isOptimistic ? 'opacity-70' : ''}`}
 		>
 			<Avatar
 				src={comment.user.avatar_url}
@@ -66,25 +104,34 @@ const CommentItem = ({ comment, onDelete, onUpdate }: CommentItemProps) => {
 							<textarea
 								value={content}
 								onChange={(e) => setContent(e.target.value)}
-								className='w-full p-2 text-sm rounded border border-neutral-200 dark:border-neutral-700'
+								className='w-full p-2 text-sm rounded border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900'
 								rows={2}
+								disabled={isLoading}
 							/>
 							<div className='flex justify-end gap-2'>
 								<Button
-									variant='outline'
+									variant='ghost'
 									size='sm'
 									onClick={() => {
 										setIsEditing(false);
 										setContent(comment.content);
 									}}
+									disabled={isLoading}
 								>
-									Cancel
+									<IconX className='w-4 h-4' />
 								</Button>
-								<Button size='sm' onClick={handleUpdate} disabled={isLoading}>
+								<Button
+									variant='ghost'
+									size='sm'
+									onClick={handleUpdate}
+									disabled={
+										isLoading || !content.trim() || content === comment.content
+									}
+								>
 									{isLoading ? (
 										<IconLoader2 className='w-4 h-4 animate-spin' />
 									) : (
-										'Save'
+										<IconCheck className='w-4 h-4' />
 									)}
 								</Button>
 							</div>
@@ -94,20 +141,24 @@ const CommentItem = ({ comment, onDelete, onUpdate }: CommentItemProps) => {
 					)}
 				</div>
 
-				{user?.id === comment.user_id && !isEditing && (
+				{user?.id === comment.user_id && !isEditing && !isOptimistic && (
 					<div className='flex gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity'>
-						<button
+						<Button
+							variant='ghost'
+							size='sm'
 							onClick={() => setIsEditing(true)}
-							className='text-xs text-neutral-500 hover:text-neutral-700'
+							className='h-6 p-1'
 						>
-							<IconEdit className='w-4 h-4' />
-						</button>
-						<button
-							onClick={onDelete}
-							className='text-xs text-red-500 hover:text-red-700'
+							<IconEdit className='w-3 h-3' />
+						</Button>
+						<Button
+							variant='ghost'
+							size='sm'
+							onClick={handleDelete}
+							className='h-6 p-1 text-red-500 hover:text-red-600'
 						>
-							<IconTrash className='w-4 h-4' />
-						</button>
+							<IconTrash className='w-3 h-3' />
+						</Button>
 					</div>
 				)}
 			</div>
@@ -124,60 +175,147 @@ interface CommentsProps {
 export function Comments({ cardId, comments, onUpdate }: CommentsProps) {
 	const { user } = useAuth();
 	const [newComment, setNewComment] = useState('');
+	const [optimisticComments, setOptimisticComments] = useState<
+		OptimisticComment[]
+	>([]);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const { toast } = useToast();
 
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		if (!newComment.trim() || !user) return;
+	// Enhanced addOptimisticComment with proper type conversion
+	const addOptimisticComment = useCallback(
+		(content: string) => {
+			if (!user) return;
 
-		try {
-			setIsSubmitting(true);
-
-			// Create temporary comment while waiting for API
-			const tempComment: Comment = {
-				id: Math.random(), // Temporary ID
-				content: newComment.trim(),
-				card_id: cardId,
-				user_id: user.id,
-				user: user,
+			// Create a properly typed comment user
+			const commentUser: CommentUser = {
+				id: user.id,
+				username: user.username,
+				email: user.email,
+				avatar_url: user.avatar_url,
 				created_at: new Date().toISOString(),
 				updated_at: new Date().toISOString(),
 			};
 
-			onUpdate([...comments, tempComment]);
-			setNewComment('');
+			const optimisticComment: OptimisticComment = {
+				id: `temp-${Date.now()}`,
+				content: content.trim(),
+				card_id: cardId,
+				user_id: user.id,
+				user: commentUser,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				optimistic: true,
+			};
+
+			setOptimisticComments((prev) => [...prev, optimisticComment]);
+		},
+		[user, cardId]
+	);
+	const removeOptimisticComment = useCallback((id: string) => {
+		setOptimisticComments((prev) =>
+			prev.filter((comment) => comment.id !== id)
+		);
+	}, []);
+	const handleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!newComment.trim() || !user) return;
+
+		const content = newComment.trim();
+		const tempId = `temp-${Date.now()}`;
+		addOptimisticComment(content);
+		setNewComment('');
+
+		try {
+			setIsSubmitting(true);
+			const apiComment = await commentApi.createComment(cardId, content);
+			console.log('Received API comment:', apiComment);
+
+			// Create a proper comment object with the required user data
+			const fullComment: Comment = {
+				...apiComment,
+				user: {
+					id: user.id,
+					username: user.username,
+					email: user.email,
+					avatar_url: user.avatar_url,
+					created_at: apiComment.created_at,
+					updated_at: apiComment.created_at, // Use created_at as initial updated_at
+				},
+				updated_at: apiComment.created_at, // Use created_at as initial updated_at
+			};
+
+			// Update with the new comment
+			onUpdate([...comments, fullComment]);
+			removeOptimisticComment(tempId);
+		} catch (error) {
+			console.error('Failed to create comment:', error);
+			toast({
+				title: 'Error',
+				description: 'Failed to add comment. Please try again.',
+				variant: 'destructive',
+			});
+			removeOptimisticComment(tempId);
+			setNewComment(content);
 		} finally {
 			setIsSubmitting(false);
 		}
 	};
 
+	const handleUpdate = async (commentId: number | string, content: string) => {
+		if (typeof commentId === 'string') return;
+
+		try {
+			const updatedComment = await commentApi.updateComment(commentId, content);
+			onUpdate(comments.map((c) => (c.id === commentId ? updatedComment : c)));
+		} catch (error) {
+			toast({
+				title: 'Error',
+				description: 'Failed to update comment. Please try again.',
+				variant: 'destructive',
+			});
+		}
+	};
+
+	const handleDelete = async (commentId: number | string) => {
+		try {
+			if (typeof commentId === 'string') {
+				removeOptimisticComment(commentId);
+				return;
+			}
+
+			await commentApi.deleteComment(commentId);
+			onUpdate(comments.filter((c) => c.id !== commentId));
+			toast({
+				title: 'Success',
+				description: 'Comment deleted successfully',
+			});
+		} catch (error) {
+			toast({
+				title: 'Error',
+				description: 'Failed to delete comment. Please try again.',
+				variant: 'destructive',
+			});
+		}
+	};
+
+	useEffect(() => {
+		console.log('Current comments:', comments);
+		console.log('Optimistic comments:', optimisticComments);
+	}, [comments, optimisticComments]);
 	return (
 		<div className='space-y-4'>
-			{/* Comment List */}
-			<AnimatePresence>
-				<div className='space-y-4'>
-					{comments.map((comment) => (
-						<CommentItem
-							key={comment.id}
-							comment={comment}
-							onDelete={async () => {
-								onUpdate(comments.filter((c) => c.id !== comment.id));
-							}}
-							onUpdate={async (content) => {
-								onUpdate(
-									comments.map((c) =>
-										c.id === comment.id
-											? { ...c, content, updated_at: new Date().toISOString() }
-											: c
-									)
-								);
-							}}
-						/>
-					))}
-				</div>
+			<AnimatePresence mode='popLayout'>
+				{[...comments, ...optimisticComments].map((comment) => (
+					<CommentItem
+						key={comment.id}
+						comment={comment}
+						onDelete={handleDelete}
+						onUpdate={handleUpdate}
+						isOptimistic={'optimistic' in comment}
+					/>
+				))}
 			</AnimatePresence>
 
-			{/* New Comment Form */}
 			<form onSubmit={handleSubmit} className='space-y-2'>
 				<textarea
 					value={newComment}
@@ -189,9 +327,12 @@ export function Comments({ cardId, comments, onUpdate }: CommentsProps) {
 				<div className='flex justify-end'>
 					<Button type='submit' disabled={isSubmitting || !newComment.trim()}>
 						{isSubmitting ? (
-							<IconLoader2 className='w-4 h-4 animate-spin mr-2' />
+							<>
+								<IconLoader2 className='w-4 h-4 animate-spin mr-2' />
+								Posting...
+							</>
 						) : (
-							'Add Comment'
+							'Post Comment'
 						)}
 					</Button>
 				</div>
