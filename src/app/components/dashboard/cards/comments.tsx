@@ -41,50 +41,72 @@ export function Comments({
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!newComment.trim() || !user) return;
+		if (!newComment.trim() || isSubmitting) return;
 
-		const content = newComment.trim();
-
-		// Create optimistic comment
+		setIsSubmitting(true);
+		const optimisticId = `temp-${Date.now()}`;
 		const optimisticComment: OptimisticComment = {
-			id: `temp-${Date.now()}`,
-			content,
-			card_id: cardId,
-			user_id: user.id,
-			user,
+			id: optimisticId,
+			content: newComment,
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString(),
-			optimistic: true,
 			type: 'optimistic',
+			optimistic: true,
+			card_id: cardId,
+			user_id: user?.id || 0,
+			user: user || {
+				id: 0,
+				username: 'Unknown User',
+				email: '',
+				created_at: new Date().toISOString(),
+				avatar_url: undefined,
+			},
 		};
 
-		// Add optimistic comment to parent state
-		onUpdate([...comments, optimisticComment]);
-		setNewComment('');
-
 		try {
-			setIsSubmitting(true);
-			const apiComment = await commentApi.createComment(cardId, content);
+			// Add optimistic comment
+			const updatedComments = [...comments, optimisticComment];
+			onUpdate(updatedComments);
 
-			// Replace optimistic comment with real one
-			const updatedComments = comments.filter(
-				(c) => c.id !== optimisticComment.id
+			// Create actual comment
+			const createdComment = await commentApi.createComment(cardId, newComment);
+			const boardComment: BoardComment = {
+				...createdComment,
+				type: 'board' as const,
+				user: createdComment.user
+					? {
+							...createdComment.user,
+							avatar_url: createdComment.user.avatar_url || undefined,
+							created_at: createdComment.created_at,
+							updated_at: createdComment.updated_at,
+						}
+					: {
+							id: 0,
+							username: 'Unknown User',
+							email: '',
+							created_at: createdComment.created_at,
+							avatar_url: undefined,
+						},
+			};
+
+			// Replace optimistic comment with actual comment
+			const finalComments = comments.map((comment) =>
+				comment.id === optimisticId ? boardComment : comment
 			);
-			onUpdate([...updatedComments, apiComment] as AnyComment[]);
+			onUpdate(finalComments);
 
+			setNewComment('');
 			toast({
 				title: 'Success',
 				description: 'Comment added successfully',
 			});
 		} catch (error) {
-			console.error('Failed to create comment:', error);
+			console.error('Failed to add comment:', error);
 			// Remove optimistic comment on error
-			const updatedComments = comments.filter(
-				(c) => c.id !== optimisticComment.id
+			const revertedComments = comments.filter(
+				(comment) => comment.id !== optimisticId
 			);
-			onUpdate(updatedComments);
-			setNewComment(content); // Restore the content
-
+			onUpdate(revertedComments);
 			toast({
 				title: 'Error',
 				description: 'Failed to add comment. Please try again.',

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Card } from '@/app/types/card';
-import { CardDetail } from '@/app/components/cards/card-detail-modal';
+import { Card } from '@/app/types/boards';
+import { CardDetail } from './card-detail';
 import {
 	IconCalendar,
 	IconPaperclip,
@@ -9,9 +9,10 @@ import {
 } from '@tabler/icons-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { AnyComment } from '@/app/types/comments';
 
 interface CardProps {
-	card: Card;
+	card: Card & { comments: AnyComment[] };
 	onUpdate: (cardId: number, data: Partial<Card>) => Promise<void>;
 	onDelete: (cardId: number) => Promise<void>;
 }
@@ -44,9 +45,9 @@ export function CardComponent({ card, onUpdate, onDelete }: CardProps) {
 				className='bg-white dark:bg-neutral-900 p-3 rounded-lg shadow-sm cursor-pointer hover:shadow-md transition-shadow'
 			>
 				{/* Labels */}
-				{card.labels.length > 0 && (
+				{(card.labels?.length ?? 0) > 0 && (
 					<div className='flex flex-wrap gap-1 mb-2'>
-						{card.labels.map((label) => (
+						{card.labels?.map((label) => (
 							<div
 								key={label.id}
 								className='h-2 w-8 rounded-full'
@@ -67,10 +68,10 @@ export function CardComponent({ card, onUpdate, onDelete }: CardProps) {
 						</div>
 					)}
 
-					{card.attachments.length > 0 && (
+					{(card.attachments?.length ?? 0) > 0 && (
 						<div className='flex items-center gap-1 text-xs'>
 							<IconPaperclip className='w-4 h-4' />
-							{card.attachments.length}
+							{card.attachments?.length}
 						</div>
 					)}
 

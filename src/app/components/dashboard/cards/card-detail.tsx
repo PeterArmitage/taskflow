@@ -21,13 +21,12 @@ import {
 } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { Editor } from './editor';
-import { DatePicker } from '@/components/ui/date-picker';
+import { CustomDatePicker } from '@/components/ui/custom-date-picker';
 import { Label } from '@/components/ui/label';
 import { cardApi } from '@/app/api/card';
 import { useToast } from '@/hooks/use-toast';
 import { LabelManager } from './label-manager';
 import { Comments } from './comments';
-import CommentList from './comment-list';
 import {
 	AnyComment,
 	BoardComment,
@@ -80,7 +79,7 @@ export function CardDetail({
 	const { toast } = useToast();
 
 	// Add state for comments
-	const [comments, setComments] = useState<AnyComment[]>([]);
+	const [comments, setComments] = useState<AnyComment[]>(card.comments || []);
 
 	// Fetch comments when card is opened
 	useEffect(() => {
@@ -132,14 +131,13 @@ export function CardDetail({
 				due_date:
 					updates.due_date === undefined ? card.due_date : updates.due_date,
 				labels: updates.labels === undefined ? card.labels : updates.labels,
-				comments:
-					updates.comments === undefined ? card.comments : updates.comments,
+				comments: updates.comments === undefined ? comments : updates.comments,
 			};
 
 			// Ensure all comments have the correct type
 			if (updatedCard.comments) {
 				updatedCard.comments = updatedCard.comments.map((comment) => {
-					if ('optimistic' in comment) return comment;
+					if (isOptimisticComment(comment)) return comment;
 					return {
 						...comment,
 						type: 'board' as const,
@@ -153,12 +151,13 @@ export function CardDetail({
 
 			return updatedCard;
 		},
-		[card]
+		[card, comments]
 	);
 
 	const handleCommentAdd = async (comment: AnyComment) => {
 		try {
 			setComments((prevComments) => [...prevComments, comment]);
+			onUpdate(updateCard({ comments: [...comments, comment] }));
 		} catch (error) {
 			console.error('Failed to add comment:', error);
 			toast({
@@ -379,7 +378,7 @@ export function CardDetail({
 											<IconCalendar className='w-4 h-4' />
 											Due Date
 										</Label>
-										<DatePicker
+										<CustomDatePicker
 											value={dueDate}
 											onChange={setDueDate}
 											disabled={!isEditing}

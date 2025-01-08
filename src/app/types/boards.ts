@@ -1,3 +1,26 @@
+import { AnyComment } from './comments';
+import { User } from './auth';
+
+export type ActivityType =
+	| 'created'
+	| 'updated'
+	| 'deleted'
+	| 'moved'
+	| 'archived'
+	| 'restored';
+
+export interface BaseActivity extends Timestamps {
+	id: number;
+	type: ActivityType;
+	user_id: number;
+	card_id: number;
+	user: User;
+}
+
+export interface BoardUser extends User {
+	role?: 'viewer' | 'editor' | 'admin';
+}
+
 export interface Board extends Timestamps {
 	id: number;
 	title: string;
@@ -27,8 +50,8 @@ export interface Card extends Timestamps {
 	created_at: string;
 	updated_at: string;
 	due_date?: string | null;
-	labels?: Label[];
-	attachments?: Attachment[];
+	labels: Label[] | undefined;
+	attachments: Attachment[] | undefined;
 	comments: AnyComment[];
 	comments_count?: number;
 	position: number;
