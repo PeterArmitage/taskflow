@@ -1,5 +1,3 @@
-import { AnyComment } from './comments';
-
 export interface Board extends Timestamps {
 	id: number;
 	title: string;
@@ -34,8 +32,13 @@ export interface Card extends Timestamps {
 	comments: AnyComment[];
 	comments_count?: number;
 	position: number;
-	activities?: Activity[];
+	activities?: BaseActivity[];
 	attachments_count: number;
+	checklist_total: number;
+	checklist_completed: number;
+	checklists?: Checklist[];
+	archived?: boolean;
+	cover_image_url?: string;
 }
 export interface BoardWithLists extends Board {
 	lists: (List & {
@@ -55,23 +58,13 @@ export interface BoardMember extends Timestamps {
 	board_id: number;
 	user_id: number;
 	role: 'viewer' | 'editor' | 'admin';
-	user: User;
+	user: BoardUser;
 }
 
-export interface BoardActivity {
-	id: number;
-	board_id: number;
-	user_id: number;
-	action: string;
-	details: string;
-	created_at: string;
-}
-
-export interface User {
-	id: number;
-	username: string;
-	email: string;
-	avatar_url?: string | null;
+export interface BoardActivity extends Omit<BaseActivity, 'type' | 'user'> {
+	type: ActivityType;
+	details?: string;
+	user: BoardUser;
 }
 
 export interface Timestamps {
@@ -84,7 +77,7 @@ export interface Comment extends Timestamps {
 	content: string;
 	card_id: number;
 	user_id: number;
-	user: User;
+	user: BoardUser;
 	created_at: string;
 	updated_at: string;
 }
@@ -99,25 +92,12 @@ export interface Attachment extends Timestamps {
 	uploaded_at: string;
 }
 
-export interface Activity extends Timestamps {
-	id: number;
-	type:
-		| 'card_created'
-		| 'card_moved'
-		| 'card_updated'
-		| 'comment_added'
-		| 'label_added';
-	card_id: number;
-	user_id: number;
-	user: User;
-	metadata?: Record<string, unknown>;
-}
-
 export interface CardCreateData {
 	title: string;
 	list_id: number;
 	description?: string;
 	due_date?: string;
+	position?: number;
 }
 
 export interface CardUpdateData {
@@ -154,4 +134,16 @@ export interface CommentCreateData {
 
 export interface CommentUpdateData {
 	content: string;
+}
+
+export interface ChecklistItem {
+	id: number;
+	content: string;
+	completed: boolean;
+}
+
+export interface Checklist {
+	id: number;
+	title: string;
+	items: ChecklistItem[];
 }

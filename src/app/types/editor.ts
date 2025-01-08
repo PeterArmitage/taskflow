@@ -5,3 +5,11 @@ export interface EditorProps {
 	readOnly?: boolean;
 	className?: string;
 }
+
+export interface EditorRef {
+	editor?: {
+		view?: {
+			dom?: HTMLElement;
+		};
+	};
+}

@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useCallback, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { Board, List, Card } from '@/app/types/boards';
+import { Board, Card } from '@/app/types/boards';
 import { boardApi } from '@/app/api/board';
 import { Loading } from '@/app/components/ui/loading';
+<<<<<<< HEAD
 import { BoardList } from '@/app/components/dashboard/boards/board-list';
 import {
 	DndContext,
@@ -19,10 +20,17 @@ import { IconPlus } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { CreateListForm } from '@/app/components/dashboard/boards/create-list-form';
 import { CardDetail } from '@/app/components/dashboard/cards/card-detail';
+=======
+import { BoardView } from '@/app/components/dashboard/boards/board-view';
+import { useToast } from '@/hooks/use-toast';
+import { CardDetail } from '@/app/components/dashboard/cards/card-detail';
+
+>>>>>>> b79c5c87a44ba064dceb6ffe4c06d2469dd29628
 export default function BoardPage() {
 	const { boardId } = useParams();
 	const [board, setBoard] = useState<Board | null>(null);
 	const [loading, setLoading] = useState(true);
+<<<<<<< HEAD
 	const [showCreateList, setShowCreateList] = useState(false);
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const [selectedCard, setSelectedCard] = useState<Card | null>(null);
@@ -34,26 +42,34 @@ export default function BoardPage() {
 			},
 		})
 	);
+=======
+	const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+	const { toast } = useToast();
+>>>>>>> b79c5c87a44ba064dceb6ffe4c06d2469dd29628
 
+	// Load board data
 	const loadBoard = useCallback(async () => {
 		try {
-			console.log('Fetching board data for ID:', boardId);
+			setLoading(true);
 			const data = await boardApi.getBoard(Number(boardId));
-			console.log('Board data received:', data);
-			// Check if lists array exists and what it contains
-			console.log('Lists in board data:', data.lists);
 			setBoard(data);
 		} catch (error) {
 			console.error('Failed to load board:', error);
+			toast({
+				title: 'Error',
+				description: 'Failed to load board. Please try again.',
+				variant: 'destructive',
+			});
 		} finally {
 			setLoading(false);
 		}
-	}, [boardId]);
+	}, [boardId, toast]);
 
 	useEffect(() => {
 		loadBoard();
 	}, [loadBoard]);
 
+<<<<<<< HEAD
 	useEffect(() => {
 		console.log('Board state updated:', board);
 	}, [board]);
@@ -117,35 +133,16 @@ export default function BoardPage() {
 		setSelectedCard(card);
 		// Add CardDetail component rendering
 	}, []);
+=======
+>>>>>>> b79c5c87a44ba064dceb6ffe4c06d2469dd29628
 	if (loading) return <Loading />;
 	if (!board) return <div>Board not found</div>;
 
-	// Ensure lists exist before rendering
-	const lists = board.lists || [];
-
 	return (
-		<DndContext
-			sensors={sensors}
-			onDragOver={handleDragOver}
-			onDragEnd={handleDragEnd}
-		>
-			<div className='flex flex-col h-full'>
-				{/* Board Header */}
-				<div className='p-4 border-b dark:border-neutral-800 flex items-center justify-between'>
-					<div>
-						<h1 className='text-2xl font-bold'>{board.title}</h1>
-						{board.description && (
-							<p className='text-gray-600 dark:text-gray-400 mt-1'>
-								{board.description}
-							</p>
-						)}
-					</div>
-					<Button variant='outline' onClick={() => setShowCreateList(true)}>
-						<IconPlus className='w-4 h-4 mr-2' />
-						Add List
-					</Button>
-				</div>
+		<div className='h-full'>
+			<BoardView board={board} onUpdate={loadBoard} />
 
+<<<<<<< HEAD
 				{/* Lists Container */}
 				<div className='flex-1 overflow-x-auto p-4'>
 					<div className='flex gap-4'>
@@ -190,5 +187,24 @@ export default function BoardPage() {
 				</div>
 			</div>
 		</DndContext>
+=======
+			{/* Card Detail Modal */}
+			{selectedCard && (
+				<CardDetail
+					card={selectedCard}
+					isOpen={true}
+					onClose={() => setSelectedCard(null)}
+					onUpdate={async (updatedCard) => {
+						await loadBoard();
+						setSelectedCard(null);
+					}}
+					onDelete={async () => {
+						await loadBoard();
+						setSelectedCard(null);
+					}}
+				/>
+			)}
+		</div>
+>>>>>>> b79c5c87a44ba064dceb6ffe4c06d2469dd29628
 	);
 }
