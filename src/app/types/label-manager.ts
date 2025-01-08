@@ -1,5 +1,6 @@
 import { Label } from './boards';
 
+// types/label-manager.ts
 export interface LabelManagerProps {
 	cardId: number;
 	labels: Label[];

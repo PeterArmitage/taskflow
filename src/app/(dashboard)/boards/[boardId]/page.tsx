@@ -18,14 +18,14 @@ import { SortableContext, arrayMove } from '@dnd-kit/sortable';
 import { IconPlus } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { CreateListForm } from '@/app/components/dashboard/boards/create-list-form';
-
+import { CardDetail } from '@/app/components/dashboard/cards/card-detail';
 export default function BoardPage() {
 	const { boardId } = useParams();
 	const [board, setBoard] = useState<Board | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [showCreateList, setShowCreateList] = useState(false);
 	const [activeId, setActiveId] = useState<string | null>(null);
-
+	const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 	// Configure sensors with explicit typing
 	const sensors = useSensors(
 		useSensor(PointerSensor, {
@@ -113,7 +113,10 @@ export default function BoardPage() {
 
 		setActiveId(null);
 	};
-
+	const handleCardSelect = useCallback((card: Card) => {
+		setSelectedCard(card);
+		// Add CardDetail component rendering
+	}, []);
 	if (loading) return <Loading />;
 	if (!board) return <div>Board not found</div>;
 
@@ -152,6 +155,7 @@ export default function BoardPage() {
 									key={list.id}
 									list={list}
 									onUpdate={loadBoard}
+									onCardSelect={handleCardSelect}
 									isActive={activeId === list.id.toString()}
 								/>
 							))}
@@ -169,6 +173,18 @@ export default function BoardPage() {
 									}}
 								/>
 							</div>
+						)}
+						{selectedCard && (
+							<CardDetail
+								card={selectedCard}
+								isOpen={true}
+								onClose={() => setSelectedCard(null)}
+								onUpdate={loadBoard}
+								onDelete={async () => {
+									await loadBoard();
+									setSelectedCard(null);
+								}}
+							/>
 						)}
 					</div>
 				</div>

@@ -1,3 +1,5 @@
+import { AnyComment } from './comments';
+
 export interface Board extends Timestamps {
 	id: number;
 	title: string;
@@ -29,7 +31,7 @@ export interface Card extends Timestamps {
 	due_date?: string | null;
 	labels?: Label[];
 	attachments?: Attachment[];
-	comments: Comment[];
+	comments: AnyComment[];
 	comments_count?: number;
 	position: number;
 	activities?: Activity[];

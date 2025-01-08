@@ -1,7 +1,13 @@
-import { useState, useCallback } from 'react';
+// components/dashboard/cards/card-detail.tsx
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, Label as CardLabel, Comment } from '@/app/types/boards';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Card, Label as CardLabel } from '@/app/types/boards';
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
 	IconCalendar,
@@ -21,20 +27,29 @@ import { cardApi } from '@/app/api/card';
 import { useToast } from '@/hooks/use-toast';
 import { LabelManager } from './label-manager';
 import { Comments } from './comments';
+import CommentList from './comment-list';
+import {
+	AnyComment,
+	BoardComment,
+	OptimisticComment,
+	isOptimisticComment,
+} from '@/app/types/comments';
 import { Nullable, toNullable, DateHelper } from '@/app/types/helpers';
 import { cn } from '@/lib/utils';
+import { commentApi } from '@/app/api/comment';
 
-// Type definitions for better type safety
+// Interface for handling card updates
 interface CardUpdate {
 	title?: string;
 	description?: string;
 	due_date?: Nullable<string>;
 	labels?: CardLabel[];
-	comments?: Comment[];
+	comments?: AnyComment[];
 }
 
+// Props interface with refined typing
 interface CardDetailProps {
-	card: Card;
+	card: Card & { comments: AnyComment[] };
 	isOpen: boolean;
 	onClose: () => void;
 	onUpdate: (card: Card) => void;
@@ -50,7 +65,11 @@ export function CardDetail({
 	onDelete,
 	className,
 }: CardDetailProps) {
-	// Enhanced state management with proper typing
+	// Add debug logging
+	console.log('Card data:', card);
+	console.log('Card comments:', card.comments);
+
+	// Local state management
 	const [isEditing, setIsEditing] = useState(false);
 	const [title, setTitle] = useState(card.title);
 	const [description, setDescription] = useState(card.description || '');
@@ -60,56 +79,95 @@ export function CardDetail({
 	const [isSaving, setIsSaving] = useState(false);
 	const { toast } = useToast();
 
-	const updateCard = (card: Card, updates: Partial<CardUpdate>): Card => {
-		return {
-			...card,
-			...updates,
-			// Ensure we handle undefined values correctly
-			due_date:
-				updates.due_date === undefined ? card.due_date : updates.due_date,
-			labels: updates.labels === undefined ? card.labels : updates.labels,
-			comments:
-				updates.comments === undefined ? card.comments : updates.comments,
-		};
-	};
-	// Handlers with proper error management
-	const handleSave = useCallback(async () => {
-		if (!title.trim()) {
-			toast({
-				title: 'Error',
-				description: 'Title cannot be empty',
-				variant: 'destructive',
-			});
-			return;
-		}
+	// Add state for comments
+	const [comments, setComments] = useState<AnyComment[]>([]);
 
-		try {
-			setIsSaving(true);
-			const updateData: CardUpdate = {
-				title: title.trim(),
-				description: description.trim() || undefined,
-				due_date: dueDate,
+	// Fetch comments when card is opened
+	useEffect(() => {
+		if (isOpen) {
+			const fetchComments = async () => {
+				try {
+					const fetchedComments = await commentApi.getComments(card.id);
+					const boardComments = fetchedComments.map((comment) => ({
+						...comment,
+						type: 'board' as const,
+						user: comment.user
+							? {
+									...comment.user,
+									avatar_url: comment.user.avatar_url || undefined,
+									created_at: comment.created_at,
+									updated_at: comment.updated_at,
+								}
+							: {
+									id: 0,
+									username: 'Unknown User',
+									email: '',
+									created_at: comment.created_at,
+									avatar_url: undefined,
+								},
+					})) as BoardComment[];
+					setComments(boardComments);
+				} catch (error) {
+					console.error('Failed to fetch comments:', error);
+					toast({
+						title: 'Error',
+						description: 'Failed to load comments. Please try again.',
+						variant: 'destructive',
+					});
+				}
+			};
+			fetchComments();
+		}
+	}, [card.id, isOpen, toast]);
+
+	// Combine board comments for display
+	const allComments: AnyComment[] = comments;
+
+	// Helper function to update card while preserving types
+	const updateCard = useCallback(
+		(updates: Partial<CardUpdate>): Card => {
+			const updatedCard = {
+				...card,
+				...updates,
+				due_date:
+					updates.due_date === undefined ? card.due_date : updates.due_date,
+				labels: updates.labels === undefined ? card.labels : updates.labels,
+				comments:
+					updates.comments === undefined ? card.comments : updates.comments,
 			};
 
-			const updatedCard = await cardApi.updateCard(card.id, updateData);
-			onUpdate(updatedCard);
+			// Ensure all comments have the correct type
+			if (updatedCard.comments) {
+				updatedCard.comments = updatedCard.comments.map((comment) => {
+					if ('optimistic' in comment) return comment;
+					return {
+						...comment,
+						type: 'board' as const,
+						user: {
+							...comment.user,
+							avatar_url: comment.user.avatar_url || undefined,
+						},
+					} as BoardComment;
+				});
+			}
 
-			setIsEditing(false);
-			toast({
-				title: 'Success',
-				description: 'Card updated successfully',
-			});
+			return updatedCard;
+		},
+		[card]
+	);
+
+	const handleCommentAdd = async (comment: AnyComment) => {
+		try {
+			setComments((prevComments) => [...prevComments, comment]);
 		} catch (error) {
-			console.error('Failed to update card:', error);
+			console.error('Failed to add comment:', error);
 			toast({
 				title: 'Error',
-				description: 'Failed to update card. Please try again.',
+				description: 'Failed to add comment. Please try again.',
 				variant: 'destructive',
 			});
-		} finally {
-			setIsSaving(false);
 		}
-	}, [card.id, title, description, dueDate, onUpdate, toast]);
+	};
 
 	const handleDeleteClick = async () => {
 		if (!window.confirm('Are you sure you want to delete this card?')) return;
@@ -134,9 +192,111 @@ export function CardDetail({
 		}
 	};
 
+	// Card update handler
+	const handleSave = useCallback(async () => {
+		if (!title.trim()) {
+			toast({
+				title: 'Error',
+				description: 'Title cannot be empty',
+				variant: 'destructive',
+			});
+			return;
+		}
+
+		try {
+			setIsSaving(true);
+			const updatedCard = await cardApi.updateCard(card.id, {
+				title: title.trim(),
+				description: description.trim() || undefined,
+				due_date: dueDate,
+			});
+			onUpdate(updatedCard);
+			setIsEditing(false);
+			toast({
+				title: 'Success',
+				description: 'Card updated successfully',
+			});
+		} catch (error) {
+			console.error('Failed to update card:', error);
+			toast({
+				title: 'Error',
+				description: 'Failed to update card. Please try again.',
+				variant: 'destructive',
+			});
+		} finally {
+			setIsSaving(false);
+		}
+	}, [card.id, title, description, dueDate, onUpdate, toast]);
+
+	// Comment handlers
+	const handleCommentUpdate = async (
+		commentId: number | string,
+		content: string
+	) => {
+		try {
+			const numericId =
+				typeof commentId === 'string' ? parseInt(commentId) : commentId;
+			const updatedComment = await commentApi.updateComment(numericId, content);
+
+			setComments((prevComments) =>
+				prevComments.map((comment) =>
+					comment.id === commentId
+						? {
+								...updatedComment,
+								type: 'board' as const,
+								user: {
+									...updatedComment.user,
+									avatar_url: updatedComment.user.avatar_url || undefined,
+								},
+							}
+						: comment
+				)
+			);
+
+			toast({
+				title: 'Success',
+				description: 'Comment updated successfully',
+			});
+		} catch (error) {
+			console.error('Failed to update comment:', error);
+			toast({
+				title: 'Error',
+				description: 'Failed to update comment. Please try again.',
+				variant: 'destructive',
+			});
+		}
+	};
+
+	const handleCommentDelete = async (commentId: number | string) => {
+		try {
+			const numericId =
+				typeof commentId === 'string' ? parseInt(commentId) : commentId;
+			await commentApi.deleteComment(numericId);
+
+			setComments((prevComments) =>
+				prevComments.filter((comment) => comment.id !== commentId)
+			);
+
+			toast({
+				title: 'Success',
+				description: 'Comment deleted successfully',
+			});
+		} catch (error) {
+			console.error('Failed to delete comment:', error);
+			toast({
+				title: 'Error',
+				description: 'Failed to delete comment. Please try again.',
+				variant: 'destructive',
+			});
+		}
+	};
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
 			<DialogContent className={cn('max-w-4xl p-0', className)}>
+				<DialogHeader>
+					<DialogTitle className='sr-only'>{card.title}</DialogTitle>
+				</DialogHeader>
+
 				<AnimatePresence mode='wait'>
 					<motion.div
 						initial={{ opacity: 0, y: 20 }}
@@ -237,7 +397,7 @@ export function CardDetail({
 											cardId={card.id}
 											labels={card.labels || []}
 											onUpdate={(labels) => {
-												onUpdate(updateCard(card, { labels }));
+												onUpdate(updateCard({ labels }));
 											}}
 											disabled={!isEditing}
 										/>
@@ -258,14 +418,16 @@ export function CardDetail({
 									<div className='space-y-3'>
 										<Label className='flex items-center gap-2'>
 											<IconMessageCircle className='w-4 h-4' />
-											Comments
+											Comments ({allComments.length})
 										</Label>
 										<Comments
 											cardId={card.id}
-											comments={card.comments || []}
-											onUpdate={(comments) => {
-												onUpdate(updateCard(card, { comments }));
+											comments={allComments}
+											onUpdate={(updatedComments) => {
+												onUpdate(updateCard({ comments: updatedComments }));
 											}}
+											onUpdateComment={handleCommentUpdate}
+											onDeleteComment={handleCommentDelete}
 										/>
 									</div>
 								</TabsContent>
