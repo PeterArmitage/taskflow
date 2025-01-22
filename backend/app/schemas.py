@@ -136,6 +136,22 @@ class Label(LabelCreate):
     card_id: int
 
     model_config = ConfigDict(from_attributes=True)   
+ 
+class LabelBase(BaseModel):
+    name: str
+    color: str
+    type: Optional[str] = None
+
+class LabelCreate(LabelBase):
+    pass
+
+class Label(LabelBase):
+    id: int
+    card_id: int
+    
+    
+    class Config:
+        from_attributes = True
     
 class Token(BaseModel):
     access_token: str

@@ -74,8 +74,9 @@ export interface Label {
 	name: string;
 	color: string;
 	card_id: number;
+	type?: 'priority' | 'status' | 'category' | 'custom';
+	description?: string;
 }
-
 export interface BoardMember extends Timestamps {
 	id: number;
 	board_id: number;
@@ -142,13 +143,16 @@ export interface LabelCreateData {
 	name: string;
 	color: string;
 	card_id: number;
+	type?: 'priority' | 'status' | 'category' | 'custom';
+	description?: string;
 }
 
 export interface LabelUpdateData {
 	name?: string;
 	color?: string;
+	type?: 'priority' | 'status' | 'category' | 'custom';
+	description?: string;
 }
-
 // Types for comment operations
 export interface CommentCreateData {
 	content: string;

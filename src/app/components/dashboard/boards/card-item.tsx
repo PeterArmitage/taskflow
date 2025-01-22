@@ -9,6 +9,7 @@ import {
 	IconGripVertical,
 } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
+import { DueDateBadge } from '@/app/components/ui/card-badge';
 
 interface CardItemProps {
 	card: Card;
@@ -101,16 +102,13 @@ export function CardItem({
 			{/* Card Metadata */}
 			<div className='flex items-center gap-3 text-neutral-500 dark:text-neutral-400'>
 				{card.due_date && (
-					<motion.div
-						initial={{ opacity: 0 }}
-						animate={{ opacity: 1 }}
-						className='flex items-center gap-1 text-xs'
-					>
-						<IconCalendar className='w-4 h-4' />
-						{new Date(card.due_date).toLocaleDateString()}
+					<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+						<DueDateBadge
+							dueDate={card.due_date}
+							className='flex items-center gap-1 text-xs'
+						/>
 					</motion.div>
 				)}
-
 				{(card.comments_count ?? 0) > 0 && (
 					<motion.div
 						initial={{ opacity: 0 }}

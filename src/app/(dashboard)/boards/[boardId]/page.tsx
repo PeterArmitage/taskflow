@@ -18,7 +18,7 @@ import { SortableContext, arrayMove } from '@dnd-kit/sortable';
 import { IconPlus } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { CreateListForm } from '@/app/components/dashboard/boards/create-list-form';
-import { CardDetail } from '@/app/components/dashboard/cards/card-detail';
+import { CardDetail } from '@/app/components/dashboard/cards/card-detail/card-detail';
 import { useToast } from '@/hooks/use-toast';
 
 export default function BoardPage() {

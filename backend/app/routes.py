@@ -576,25 +576,61 @@ async def move_card(
 
     return card
 
-@router.post("/cards/{card_id}/labels", response_model=schemas.Card)
-def add_label_to_card(
-    card_id: int, 
-    label: schemas.LabelCreate, 
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_user)
+@router.post("/cards/{card_id}/labels", response_model=schemas.Label)
+async def create_label(
+    card_id: int,
+    label: schemas.LabelCreate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Check if card exists and user has access
+    card = db.query(models.Card).join(models.List).join(models.Board).filter(
+        models.Card.id == card_id,
+        models.Board.owner_id == current_user.id
+    ).first()
+    
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    db_label = models.Label(**label.dict(), card_id=card_id)
+    db.add(db_label)
+    db.commit()
+    db.refresh(db_label)
+    return db_label
+
+@router.delete("/labels/{label_id}")
+async def delete_label(
+    label_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    label = db.query(models.Label).join(models.Card).join(models.List).join(models.Board).filter(
+        models.Label.id == label_id,
+        models.Board.owner_id == current_user.id
+    ).first()
+    
+    if not label:
+        raise HTTPException(status_code=404, detail="Label not found")
+    
+    db.delete(label)
+    db.commit()
+    return {"detail": "Label deleted successfully"}
+
+@router.get("/cards/{card_id}/labels", response_model=List[schemas.Label])
+async def get_card_labels(
+    card_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
 ):
     card = db.query(models.Card).join(models.List).join(models.Board).filter(
         models.Card.id == card_id,
         models.Board.owner_id == current_user.id
     ).first()
+    
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     
-    new_label = models.Label(**label.model_dump(), card_id=card_id)
-    db.add(new_label)
-    db.commit()
-    db.refresh(card)
-    return card
+    return card.labels
 
 @router.delete("/cards/{card_id}/labels/{label_id}", response_model=schemas.Card)
 def remove_label_from_card(

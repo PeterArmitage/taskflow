@@ -10,6 +10,7 @@ import {
 	BatchOperationResponse,
 } from '@/app/types/api-responses';
 import { Nullable } from '@/app/types/helpers';
+import { Label } from '@/app/types/boards';
 
 interface CardCreateData {
 	title: string;
@@ -23,8 +24,8 @@ interface CardUpdateData {
 	description?: Nullable<string>;
 	due_date?: Nullable<string>;
 	position?: number;
+	labels?: Label[];
 }
-
 export const cardApi = {
 	// Create a new card
 	async createCard(data: CardCreateData): Promise<Card> {
@@ -42,16 +43,23 @@ export const cardApi = {
 	// Update an existing card
 	async updateCard(cardId: number, data: CardUpdateData): Promise<Card> {
 		try {
+			console.log('Updating card:', cardId, 'with data:', data);
 			const response = await api.put<CardUpdateResponse>(
 				withTrailingSlash(`cards/${cardId}`),
 				data
 			);
-			return response.data.data;
+			console.log('Card update response:', response.data);
+
+			// Fetch latest labels after update
+			const labels = await api.get(withTrailingSlash(`cards/${cardId}/labels`));
+			return {
+				...response.data.data,
+				labels: labels.data,
+			};
 		} catch (error) {
 			throw handleApiError(error as Error);
 		}
 	},
-
 	// Move a card to a different list
 	async moveCard(
 		cardId: number,
@@ -90,6 +98,25 @@ export const cardApi = {
 				{ params: { page, per_page: perPage } }
 			);
 			return response.data.data;
+		} catch (error) {
+			throw handleApiError(error as Error);
+		}
+	},
+	updateComment: async (
+		commentId: number,
+		content: string
+	): Promise<Comment> => {
+		try {
+			const response = await api.put(`/comments/${commentId}`, { content });
+			return response.data;
+		} catch (error) {
+			throw handleApiError(error as Error);
+		}
+	},
+
+	deleteComment: async (commentId: number): Promise<void> => {
+		try {
+			await api.delete(`/comments/${commentId}`);
 		} catch (error) {
 			throw handleApiError(error as Error);
 		}

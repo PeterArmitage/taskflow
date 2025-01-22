@@ -86,7 +86,7 @@ class Label(Base):
     name = Column(String)
     color = Column(String)
     card_id = Column(Integer, ForeignKey("cards.id"))
-
+    type = Column(String, nullable=True)
     card = relationship("Card", back_populates="labels")
 
 class Attachment(Base):
