@@ -1,36 +1,132 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TaskFlow
 
-## Getting Started
+TaskFlow is a modern project management application inspired by Trello, built with Next.js, TypeScript, and FastAPI. It enables teams to organize tasks, collaborate in real-time, and streamline their workflow with an intuitive Kanban-style interface.
 
-First, run the development server:
+## 🌟 Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### Core Features
+- **Kanban Board Management**
+  - Create and manage multiple boards
+  - Drag-and-drop interface for cards and lists
+  - Real-time updates across users
+  - Board sharing and permissions
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Card Management
+- **Rich Card Features**
+  - Custom labels with descriptions
+  - Due dates and reminders
+  - File attachments
+  - Comments and discussions
+  - Activity tracking
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### User Experience
+- **Modern UI/UX**
+  - Responsive design
+  - Dark/Light mode support
+  - Smooth animations
+  - Keyboard shortcuts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Collaboration
+- **Team Features**
+  - Real-time collaboration
+  - Board sharing
+  - User permissions
+  - Activity logging
 
-## Learn More
+## 🛠️ Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
+### Frontend
+- [Next.js 15](https://nextjs.org/) - React framework
+- [TypeScript](https://www.typescriptlang.org/) - Type safety
+- [Tailwind CSS](https://tailwindcss.com/) - Styling
+- [Radix UI](https://www.radix-ui.com/) - UI components
+- [Aceternity UI](https://ui.aceternity.com/) - Enhanced UI components
+- [Framer Motion](https://www.framer.com/motion/) - Animations
+- [Tanstack Query](https://tanstack.com/query/latest) - Data fetching
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Backend
+- [FastAPI](https://fastapi.tiangolo.com/) - Python backend framework
+- [SQLAlchemy](https://www.sqlalchemy.org/) - ORM
+- [PostgreSQL](https://www.postgresql.org/) - Database
+- [Python 3.9+](https://www.python.org/) - Backend language
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🚧 Work in Progress
 
-## Deploy on Vercel
+TaskFlow is actively under development. Here's what i am currently working on:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Current Development
+- ✅ Board and List Management
+  - Basic board creation and management
+  - List creation and ordering
+  - Card creation and movement
+  - Role-based board access
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- ✅ Label System
+  - Custom label creation
+  - Color customization
+  - Label descriptions
+  - Label management interface
+
+### In Progress
+- 🔄 Card Enhancements
+  - Attachments system
+  - Checklists
+  - Due dates with reminders
+  - Activity logging
+
+- 🔄 Real-time Features
+  - WebSocket integration
+  - Live updates for card movements
+  - Real-time collaboration
+  - Comment notifications
+
+### Planned Features
+- 📋 Enhanced Board Features
+  - Board templates
+  - Advanced sharing options
+  - Board archiving
+  - Export/import functionality
+
+- 🔍 Search and Filter System
+  - Global search across boards
+  - Advanced card filtering
+  - Saved searches
+  - Filter by multiple criteria
+
+- 📱 User Experience
+  - Mobile responsiveness
+  - Keyboard shortcuts
+  - Customizable themes
+  - Performance optimizations
+
+- 👥 Team Collaboration
+  - Team management
+  - Permission levels
+  - Activity dashboard
+  - Email notifications
+
+### Future Considerations
+- 📊 Analytics Dashboard
+  - Board statistics
+  - Team productivity metrics
+  - Time tracking
+  - Progress reports
+
+- 🔌 Integrations
+  - GitHub integration
+  - Slack notifications
+  - Calendar sync
+  - File storage services
+
+- 🎯 Advanced Features
+  - Custom fields
+  - Automation rules
+  - API access
+  - Public board sharing
+ 
+🙏 Acknowledgments
+
+Trello for inspiration
+Aceternity UI for amazing UI components
+Radix UI for accessible components
+Claude AI for being awesome and speeding up my work
