@@ -12,15 +12,21 @@ interface CreateLabelRequest {
 export const labelApi = {
 	async createLabel(cardId: number, data: CreateLabelRequest): Promise<Label> {
 		try {
+			console.log('API: Creating label with data:', data);
+			// Ensure description is included in payload
 			const payload = {
 				name: data.name,
 				color: data.color,
-				...(data.type !== 'custom' && { type: data.type }),
+				description: data.description,
+				...(data.type && { type: data.type }),
 			};
+
+			console.log('API: Final payload:', payload);
 			const response = await api.post(
 				withTrailingSlash(`cards/${cardId}/labels`),
 				payload
 			);
+			console.log('API: Response data:', response.data);
 			return response.data;
 		} catch (error) {
 			throw handleApiError(error as Error);

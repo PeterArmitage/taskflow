@@ -141,6 +141,7 @@ class LabelBase(BaseModel):
     name: str
     color: str
     type: Optional[str] = None
+    description: Optional[str] = None
 
 class LabelCreate(LabelBase):
     pass

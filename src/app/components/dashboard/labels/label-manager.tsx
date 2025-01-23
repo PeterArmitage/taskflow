@@ -23,35 +23,6 @@ export const LabelManager = memo(function LabelManager({
 	const [showWizard, setShowWizard] = useState(false);
 	const { toast } = useToast();
 
-	const handleLabelCreate = useCallback(
-		async (updatedLabels: Label[]) => {
-			try {
-				const newLabel = updatedLabels[updatedLabels.length - 1];
-				const createdLabel = await labelApi.createLabel(cardId, {
-					name: newLabel.name,
-					color: newLabel.color,
-				});
-
-				const finalLabels = [...labels, createdLabel];
-				await onUpdate(finalLabels);
-				setShowWizard(false);
-
-				toast({
-					title: 'Success',
-					description: 'Label created successfully',
-				});
-			} catch (error) {
-				console.error('Label creation error:', error);
-				toast({
-					title: 'Error',
-					description: 'Failed to create label',
-					variant: 'destructive',
-				});
-			}
-		},
-		[cardId, labels, onUpdate, toast]
-	);
-
 	const handleLabelDelete = useCallback(
 		async (labelId: number) => {
 			try {
@@ -82,7 +53,7 @@ export const LabelManager = memo(function LabelManager({
 			<div className='space-y-4'>
 				<AnimatePresence mode='popLayout'>
 					{labels.length > 0 ? (
-						<div className='space-y-2'>
+						<div className='space-y-4'>
 							{/* Individual label display */}
 							{labels.map((label) => (
 								<LabelDisplay
@@ -123,7 +94,7 @@ export const LabelManager = memo(function LabelManager({
 				<LabelWizard
 					cardId={cardId}
 					labels={labels}
-					onUpdate={handleLabelCreate}
+					onUpdate={onUpdate}
 					disabled={disabled}
 					isOpen={showWizard}
 					onClose={() => setShowWizard(false)}

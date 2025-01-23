@@ -78,6 +78,7 @@ export function LabelWizard({
 	};
 
 	const handleCreateLabel = async () => {
+		console.log('Label data before creation:', labelData);
 		if (!labelData.name.trim() || disabled || isLoading) return;
 
 		try {
@@ -87,7 +88,7 @@ export function LabelWizard({
 			const labelPayload = {
 				name: labelData.name.trim(),
 				color: labelData.color,
-				description: labelData.description?.trim(),
+				description: labelData.description?.trim() || undefined,
 				type: labelData.type !== 'custom' ? labelData.type : undefined,
 			};
 
@@ -95,11 +96,8 @@ export function LabelWizard({
 			const newLabel = await labelApi.createLabel(cardId, labelPayload);
 			console.log('Received new label:', newLabel);
 
-			// Update labels array with new label
-			const updatedLabels = [...labels, newLabel];
-			console.log('Updated labels array:', updatedLabels);
-			onUpdate(updatedLabels);
-
+			// Update labels with the newly created label
+			onUpdate([...labels, newLabel]);
 			resetForm();
 			onClose();
 
