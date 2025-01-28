@@ -1,5 +1,6 @@
 import { AnyComment } from './comments';
 import { User } from './auth';
+import { Checklist, ChecklistItem } from './checklist';
 
 export type ActivityType =
 	| 'created'
@@ -163,14 +164,18 @@ export interface CommentUpdateData {
 	content: string;
 }
 
-export interface ChecklistItem {
+export interface BoardChecklistItem {
 	id: number;
 	content: string;
 	completed: boolean;
 }
 
-export interface Checklist {
+export interface BoardChecklist {
 	id: number;
 	title: string;
+	card_id: number;
+	position: number;
 	items: ChecklistItem[];
+	created_at: string;
+	updated_at?: string;
 }

@@ -1,6 +1,6 @@
 // types/api-responses.ts
 
-import { Board, Card, List, Label, Comment, Activity } from './boards';
+import { Board, Card, List, Label, Comment, ActivityType } from './boards';
 
 // Base API Response interface that all responses extend
 interface ApiResponse<T> {
@@ -43,7 +43,7 @@ export interface CardUpdateResponse extends ApiResponse<Card> {
 	included?: {
 		labels?: Label[];
 		comments?: Comment[];
-		activities?: Activity[];
+		activities?: ActivityType[];
 	};
 }
 

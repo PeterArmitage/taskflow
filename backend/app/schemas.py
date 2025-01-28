@@ -224,3 +224,53 @@ class Board(BoardBase):
 
     model_config = ConfigDict(from_attributes=True)
     
+
+class ChecklistItemBase(BaseModel):
+    content: str
+    position: Optional[int] = None
+    completed: Optional[bool] = False
+
+class ChecklistItemCreate(ChecklistItemBase):
+    checklist_id: int
+
+class ChecklistItemUpdate(BaseModel):
+    content: Optional[str] = None
+    completed: Optional[bool] = None
+    position: Optional[int] = None
+
+class ChecklistItem(ChecklistItemBase):
+    id: int
+    checklist_id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ChecklistBase(BaseModel):
+    title: str
+    position: Optional[int] = None
+
+class ChecklistCreate(ChecklistBase):
+    card_id: int
+
+class ChecklistUpdate(BaseModel):
+    title: Optional[str] = None
+    position: Optional[int] = None
+
+class Checklist(ChecklistBase):
+    id: int
+    card_id: int
+    items: PyList[ChecklistItem] = []
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+# Update the Card schema to include checklists
+class Card(CardBase):
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    checklists: PyList[Checklist] = []
+
+    model_config = ConfigDict(from_attributes=True)

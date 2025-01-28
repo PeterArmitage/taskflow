@@ -1,5 +1,4 @@
 // api/card.ts
-
 import { Card } from '@/app/types/boards';
 import { api, withTrailingSlash, handleApiError } from './api';
 import {
@@ -11,6 +10,11 @@ import {
 } from '@/app/types/api-responses';
 import { Nullable } from '@/app/types/helpers';
 import { Label } from '@/app/types/boards';
+import {
+	Checklist,
+	CreateChecklistData,
+	ChecklistItem,
+} from '@/app/types/checklist';
 
 interface CardCreateData {
 	title: string;
@@ -25,7 +29,9 @@ interface CardUpdateData {
 	due_date?: Nullable<string>;
 	position?: number;
 	labels?: Label[];
+	checklists?: Checklist[];
 }
+
 export const cardApi = {
 	// Create a new card
 	async createCard(data: CardCreateData): Promise<Card> {
@@ -39,27 +45,107 @@ export const cardApi = {
 			throw handleApiError(error as Error);
 		}
 	},
-
-	// Update an existing card
-	async updateCard(cardId: number, data: CardUpdateData): Promise<Card> {
+	async getCard(cardId: number): Promise<Card> {
 		try {
-			console.log('Updating card:', cardId, 'with data:', data);
-			const response = await api.put<CardUpdateResponse>(
-				withTrailingSlash(`cards/${cardId}`),
-				data
-			);
-			console.log('Card update response:', response.data);
-
-			// Fetch latest labels after update
-			const labels = await api.get(withTrailingSlash(`cards/${cardId}/labels`));
-			return {
-				...response.data.data,
-				labels: labels.data,
-			};
+			const response = await api.get(withTrailingSlash(`cards/${cardId}`));
+			return response.data;
 		} catch (error) {
 			throw handleApiError(error as Error);
 		}
 	},
+	// Update an existing card
+	async updateCard(cardId: number, data: CardUpdateData): Promise<Card> {
+		try {
+			console.log('Updating card:', cardId, 'with data:', data);
+			const response = await api.put(
+				withTrailingSlash(`cards/${cardId}`),
+				data
+			);
+
+			// The response should include all the card data including checklists
+			return response.data;
+		} catch (error) {
+			throw handleApiError(error as Error);
+		}
+	},
+
+	// Checklist operations
+	async createChecklist(
+		cardId: number,
+		data: CreateChecklistData
+	): Promise<Checklist> {
+		try {
+			const response = await api.post(
+				withTrailingSlash(`cards/${cardId}/checklists`),
+				data
+			);
+			return response.data;
+		} catch (error) {
+			throw handleApiError(error as Error);
+		}
+	},
+
+	async updateChecklist(
+		checklistId: number,
+		data: Partial<Checklist>
+	): Promise<Checklist> {
+		try {
+			const response = await api.put(
+				withTrailingSlash(`checklists/${checklistId}`),
+				data
+			);
+			return response.data;
+		} catch (error) {
+			throw handleApiError(error as Error);
+		}
+	},
+
+	async deleteChecklist(checklistId: number): Promise<void> {
+		try {
+			await api.delete(withTrailingSlash(`checklists/${checklistId}`));
+		} catch (error) {
+			throw handleApiError(error as Error);
+		}
+	},
+
+	async createChecklistItem(
+		checklistId: number,
+		content: string
+	): Promise<ChecklistItem> {
+		try {
+			const response = await api.post(
+				withTrailingSlash(`checklists/${checklistId}/items`),
+				{ content }
+			);
+			return response.data;
+		} catch (error) {
+			throw handleApiError(error as Error);
+		}
+	},
+
+	async updateChecklistItem(
+		itemId: number,
+		data: Partial<ChecklistItem>
+	): Promise<ChecklistItem> {
+		try {
+			const response = await api.put(
+				withTrailingSlash(`checklist-items/${itemId}`),
+				data
+			);
+			return response.data;
+		} catch (error) {
+			throw handleApiError(error as Error);
+		}
+	},
+
+	async deleteChecklistItem(itemId: number): Promise<void> {
+		try {
+			await api.delete(withTrailingSlash(`checklist-items/${itemId}`));
+		} catch (error) {
+			throw handleApiError(error as Error);
+		}
+	},
+
 	// Move a card to a different list
 	async moveCard(
 		cardId: number,
@@ -102,6 +188,8 @@ export const cardApi = {
 			throw handleApiError(error as Error);
 		}
 	},
+
+	// Comment operations
 	updateComment: async (
 		commentId: number,
 		content: string

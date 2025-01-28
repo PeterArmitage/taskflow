@@ -1,5 +1,5 @@
 # app/models.py
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, DateTime, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
@@ -155,7 +155,34 @@ class BoardMember(Base):
     board = relationship("Board", back_populates="members")
     user = relationship("User", back_populates="board_memberships")
 
-    
+class Checklist(Base):
+    __tablename__ = "checklists"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String)
+    card_id = Column(Integer, ForeignKey("cards.id"))
+    position = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    card = relationship("Card", back_populates="checklists")
+    items = relationship("ChecklistItem", back_populates="checklist", cascade="all, delete-orphan")
+
+class ChecklistItem(Base):
+    __tablename__ = "checklist_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    content = Column(String)
+    completed = Column(Boolean, default=False)
+    position = Column(Integer, default=0)
+    checklist_id = Column(Integer, ForeignKey("checklists.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    checklist = relationship("Checklist", back_populates="items")
+
+# Update the Card model to include the relationship
+Card.checklists = relationship("Checklist", back_populates="card", cascade="all, delete-orphan")    
 
 # Update Board and User models
 Board.members = relationship("BoardMember", back_populates="board")

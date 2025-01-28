@@ -1,5 +1,5 @@
 // components/dashboard/cards/card-detail/card-detail.tsx
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -12,6 +12,8 @@ import { CardDetailHeader } from './header';
 import { CardDetailContent } from './content';
 import { CardDetailFooter } from './footer';
 import { cardApi } from '@/app/api/card';
+import { checklistApi } from '@/app/api/checklist';
+import { Checklist, UpdateChecklistData } from '@/app/types/checklist';
 
 interface CardDetailProps {
 	card: Card & { comments?: AnyComment[] };
@@ -19,6 +21,7 @@ interface CardDetailProps {
 	onClose: () => void;
 	onUpdate: (card: Card) => void;
 	onDelete: () => Promise<void>;
+	loading?: boolean;
 	className?: string;
 }
 
@@ -39,20 +42,88 @@ export function CardDetail({
 	const [isSaving, setIsSaving] = useState(false);
 	const { toast } = useToast();
 
-	const { labels, comments, isLoading, setComments, refetch } = useCardData(
-		card,
-		isOpen
+	const {
+		labels,
+		comments,
+		checklists,
+		isLoading,
+		setLabels,
+		setComments,
+		setChecklists,
+
+		refetch,
+	} = useCardData(card, isOpen);
+	const handleChecklistUpdate = useCallback(
+		async (checklist: Checklist) => {
+			try {
+				setIsSaving(true);
+
+				// Update the card with the new checklist
+				const updatedCard = {
+					...card,
+					checklists: card.checklists
+						? card.checklists.map((c) =>
+								c.id === checklist.id ? checklist : c
+							)
+						: [checklist],
+				};
+
+				// Update parent state
+				await onUpdate(updatedCard);
+
+				// Refresh local data
+				if (refetch) {
+					await refetch();
+				}
+			} catch (error) {
+				console.error('Failed to update checklist:', error);
+				toast({
+					title: 'Error',
+					description: 'Failed to update checklist',
+					variant: 'destructive',
+				});
+			} finally {
+				setIsSaving(false);
+			}
+		},
+		[card, onUpdate, toast, refetch]
+	);
+
+	const handleChecklistDelete = useCallback(
+		async (checklistId: number) => {
+			try {
+				setIsSaving(true);
+				await checklistApi.deleteChecklist(checklistId);
+
+				const updatedCard = {
+					...card,
+					checklists:
+						card.checklists?.filter(
+							(checklist) => checklist.id !== checklistId
+						) || [],
+				};
+
+				onUpdate(updatedCard);
+				toast({
+					title: 'Success',
+					description: 'Checklist deleted successfully',
+				});
+			} catch (error) {
+				console.error('Failed to delete checklist:', error);
+				toast({
+					title: 'Error',
+					description: 'Failed to delete checklist',
+					variant: 'destructive',
+				});
+			} finally {
+				setIsSaving(false);
+			}
+		},
+		[card, onUpdate, toast]
 	);
 
 	const handleSave = useCallback(async () => {
-		if (!title.trim()) {
-			toast({
-				title: 'Error',
-				description: 'Title cannot be empty',
-				variant: 'destructive',
-			});
-			return;
-		}
+		if (!title.trim()) return;
 
 		try {
 			setIsSaving(true);
@@ -61,15 +132,14 @@ export function CardDetail({
 				description: description.trim() || undefined,
 				due_date: dueDate,
 				labels,
+				checklists,
 			});
 
-			onUpdate(updatedCard);
-			setIsEditing(false);
+			// First update the parent
+			await onUpdate(updatedCard);
+
+			// Then refresh our local data
 			await refetch();
-			toast({
-				title: 'Success',
-				description: 'Card updated successfully',
-			});
 		} catch (error) {
 			console.error('Failed to update card:', error);
 			toast({
@@ -80,17 +150,44 @@ export function CardDetail({
 		} finally {
 			setIsSaving(false);
 		}
-	}, [card.id, title, description, dueDate, labels, onUpdate, refetch, toast]);
+	}, [
+		card.id,
+		title,
+		description,
+		dueDate,
+		labels,
+		checklists,
+		onUpdate,
+		refetch,
+		toast,
+	]);
+
+	// Add this effect to keep local state in sync
+	useEffect(() => {
+		if (isOpen) {
+			refetch();
+		}
+	}, [isOpen, refetch]);
 
 	const handleLabelUpdate = useCallback(
 		async (newLabels: CardLabel[]) => {
-			if (!isEditing) return;
 			try {
-				const updatedCard = {
+				setIsSaving(true);
+
+				// First update card with new labels
+				const updatedCard = await cardApi.updateCard(card.id, {
 					...card,
 					labels: newLabels,
-				};
-				onUpdate(updatedCard);
+				});
+
+				// Update local state
+				setLabels(newLabels);
+
+				// Notify parent of update
+				await onUpdate(updatedCard);
+
+				// Refresh data to ensure everything is in sync
+				await refetch();
 			} catch (error) {
 				console.error('Failed to update labels:', error);
 				toast({
@@ -98,9 +195,11 @@ export function CardDetail({
 					description: 'Failed to update labels. Please try again.',
 					variant: 'destructive',
 				});
+			} finally {
+				setIsSaving(false);
 			}
 		},
-		[card, isEditing, onUpdate, toast]
+		[card, setLabels, onUpdate, refetch, toast]
 	);
 
 	const handleCommentUpdate = useCallback(
@@ -158,9 +257,9 @@ export function CardDetail({
 
 	return (
 		<Dialog
-			open={isOpen && !isLoading}
+			open={isOpen}
 			onOpenChange={(open) => {
-				if (!open && !isSaving && !isLoading) {
+				if (!open) {
 					onClose();
 				}
 			}}
@@ -202,6 +301,8 @@ export function CardDetail({
 							onCommentUpdate={handleCommentUpdate}
 							onCommentDelete={handleCommentDelete}
 							onCommentsUpdate={handleCommentsUpdate}
+							onChecklistUpdate={handleChecklistUpdate}
+							onChecklistDelete={handleChecklistDelete}
 						/>
 
 						{isEditing && (

@@ -1078,3 +1078,129 @@ async def update_user_avatar(
     db.refresh(db_user)
     
     return db_user
+
+@router.post("/checklists/", response_model=schemas.Checklist)
+async def create_checklist(
+    checklist: schemas.ChecklistCreate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Verify user has access to the card
+    card = db.query(models.Card).join(models.List).join(models.Board).filter(
+        models.Card.id == checklist.card_id,
+        models.Board.owner_id == current_user.id
+    ).first()
+    
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+        
+    db_checklist = models.Checklist(**checklist.model_dump())
+    db.add(db_checklist)
+    db.commit()
+    db.refresh(db_checklist)
+    return db_checklist
+
+@router.post("/checklist-items/", response_model=schemas.ChecklistItem)
+async def create_checklist_item(
+    item: schemas.ChecklistItemCreate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Verify user has access to the checklist
+    checklist = db.query(models.Checklist).join(models.Card).join(models.List).join(models.Board).filter(
+        models.Checklist.id == item.checklist_id,
+        models.Board.owner_id == current_user.id
+    ).first()
+    
+    if not checklist:
+        raise HTTPException(status_code=404, detail="Checklist not found")
+        
+    db_item = models.ChecklistItem(**item.model_dump())
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+@router.put("/checklist-items/{item_id}", response_model=schemas.ChecklistItem)
+async def update_checklist_item(
+    item_id: int,
+    item_update: schemas.ChecklistItemUpdate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Get the item and verify user has access
+    db_item = db.query(models.ChecklistItem).join(models.Checklist).join(models.Card).join(models.List).join(models.Board).filter(
+        models.ChecklistItem.id == item_id,
+        models.Board.owner_id == current_user.id
+    ).first()
+    
+    if not db_item:
+        raise HTTPException(status_code=404, detail="Item not found")
+        
+    for key, value in item_update.model_dump(exclude_unset=True).items():
+        setattr(db_item, key, value)
+        
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+@router.delete("/checklist-items/{item_id}")
+async def delete_checklist_item(
+    item_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Get the item and verify user has access
+    db_item = db.query(models.ChecklistItem).join(models.Checklist).join(models.Card).join(models.List).join(models.Board).filter(
+        models.ChecklistItem.id == item_id,
+        models.Board.owner_id == current_user.id
+    ).first()
+    
+    if not db_item:
+        raise HTTPException(status_code=404, detail="Item not found")
+        
+    db.delete(db_item)
+    db.commit()
+    return {"detail": "Item deleted successfully"}
+
+
+@router.put("/checklists/{checklist_id}", response_model=schemas.Checklist)
+async def update_checklist(
+    checklist_id: int,
+    checklist_update: schemas.ChecklistUpdate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Verify user has access to the checklist
+    checklist = db.query(models.Checklist).join(models.Card).join(models.List).join(models.Board).filter(
+        models.Checklist.id == checklist_id,
+        models.Board.owner_id == current_user.id
+    ).first()
+    
+    if not checklist:
+        raise HTTPException(status_code=404, detail="Checklist not found")
+        
+    for key, value in checklist_update.model_dump(exclude_unset=True).items():
+        setattr(checklist, key, value)
+        
+    db.commit()
+    db.refresh(checklist)
+    return checklist
+
+@router.delete("/checklists/{checklist_id}")
+async def delete_checklist(
+    checklist_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    checklist = db.query(models.Checklist).join(models.Card).join(models.List).join(models.Board).filter(
+        models.Checklist.id == checklist_id,
+        models.Board.owner_id == current_user.id
+    ).first()
+    
+    if not checklist:
+        raise HTTPException(status_code=404, detail="Checklist not found")
+        
+    db.delete(checklist)
+    db.commit()
+    return {"detail": "Checklist deleted successfully"}
