@@ -1,5 +1,5 @@
 // components/dashboard/cards/card-detail/card-detail.tsx
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -45,7 +45,7 @@ export function CardDetail({
 	const {
 		labels,
 		comments,
-		checklists,
+		checklists = [],
 		isLoading,
 		setLabels,
 		setComments,
@@ -53,30 +53,38 @@ export function CardDetail({
 
 		refetch,
 	} = useCardData(card, isOpen);
+
+	useEffect(() => {
+		console.log('[CardDetail] Received checklists:', checklists);
+	}, [checklists]);
+
 	const handleChecklistUpdate = useCallback(
 		async (checklist: Checklist) => {
 			try {
+				console.log('[CardDetail] Updating checklist:', checklist);
 				setIsSaving(true);
 
-				// Update the card with the new checklist
-				const updatedCard = {
+				// Update card with new checklist
+				const updatedCard = await cardApi.updateCard(card.id, {
 					...card,
-					checklists: card.checklists
-						? card.checklists.map((c) =>
-								c.id === checklist.id ? checklist : c
-							)
-						: [checklist],
-				};
-
-				// Update parent state
+					checklists: [
+						...(card.checklists || []).filter((c) => c.id !== checklist.id),
+						checklist,
+					],
+				});
+				console.log(
+					'[CardDetail] Card updated with new checklist:',
+					updatedCard
+				);
+				// Update the parent component
 				await onUpdate(updatedCard);
 
-				// Refresh local data
-				if (refetch) {
-					await refetch();
-				}
+				// Make sure we refresh our local data
+				await refetch();
+
+				console.log('Card updated with new checklist:', updatedCard);
 			} catch (error) {
-				console.error('Failed to update checklist:', error);
+				console.error('[CardDetail] Failed to update checklist:', error);
 				toast({
 					title: 'Error',
 					description: 'Failed to update checklist',
@@ -86,7 +94,7 @@ export function CardDetail({
 				setIsSaving(false);
 			}
 		},
-		[card, onUpdate, toast, refetch]
+		[card, onUpdate, refetch, toast]
 	);
 
 	const handleChecklistDelete = useCallback(
@@ -254,7 +262,13 @@ export function CardDetail({
 		},
 		[setComments]
 	);
-
+	const updatedCard = useMemo(
+		() => ({
+			...card,
+			checklists: checklists || [],
+		}),
+		[card, checklists]
+	);
 	return (
 		<Dialog
 			open={isOpen}
@@ -289,7 +303,7 @@ export function CardDetail({
 						/>
 
 						<CardDetailContent
-							card={card}
+							card={updatedCard}
 							labels={labels}
 							comments={comments}
 							description={description}

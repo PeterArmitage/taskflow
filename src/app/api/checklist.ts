@@ -12,15 +12,15 @@ import { api, withTrailingSlash, handleApiError } from './api';
 export const checklistApi = {
 	async createChecklist(data: CreateChecklistData): Promise<Checklist> {
 		try {
-			console.log('API: Creating checklist with data:', data);
+			console.log('[API] Creating checklist:', data);
 			const response = await api.post(withTrailingSlash('checklists'), {
 				...data,
 				items: [],
 			});
-			console.log('API: Checklist creation response:', response.data);
+			console.log('[API] Checklist creation response:', response.data);
 			return response.data;
 		} catch (error) {
-			console.error('API: Create checklist error:', error);
+			console.error('[API] Create checklist error:', error);
 			throw handleApiError(error as Error);
 		}
 	},
@@ -95,14 +95,14 @@ export const checklistApi = {
 	},
 	async getChecklists(cardId: number): Promise<Checklist[]> {
 		try {
-			console.log('Fetching checklists for card:', cardId);
+			console.log('[API] Fetching checklists for card:', cardId);
 			const response = await api.get(
 				withTrailingSlash(`cards/${cardId}/checklists`)
 			);
-			console.log('Fetched checklists:', response.data);
+			console.log('[API] Fetched checklists:', response.data);
 			return response.data;
 		} catch (error) {
-			console.error('Get checklists error:', error);
+			console.error('[API] Get checklists error:', error);
 			throw handleApiError(error as Error);
 		}
 	},

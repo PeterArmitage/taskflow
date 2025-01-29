@@ -1,5 +1,5 @@
 // components/dashboard/cards/card-detail/content.tsx
-import { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback, useEffect } from 'react';
 import { Card, Label as CardLabel } from '@/app/types/boards';
 import { AnyComment } from '@/app/types/comments';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Editor } from '@/app/components/dashboard/cards/editor';
 import { CustomDatePicker } from '@/components/ui/custom-date-picker';
 import { LabelManager } from '@/app/components/dashboard/labels/label-manager';
-import { Checklist } from '@/app/types/checklist';
+import { Checklist, CreateChecklistData } from '@/app/types/checklist';
 import { Checklist as ChecklistComponent } from '@/app/components/dashboard/checklists';
 import { Comments } from '@/app/components/dashboard/cards/comments';
 import {
@@ -93,7 +93,7 @@ export const CardDetailContent = memo(function CardDetailContent({
 						isEditing={isEditing}
 					/>
 					<ChecklistSection
-						card={{ ...card, checklists }}
+						card={card}
 						isEditing={isEditing}
 						onChecklistUpdate={onChecklistUpdate}
 						onChecklistDelete={onChecklistDelete}
@@ -136,19 +136,35 @@ const ChecklistSection = memo(function ChecklistSection({
 	const [isAddingChecklist, setIsAddingChecklist] = useState(false);
 	const [newChecklistTitle, setNewChecklistTitle] = useState('');
 
-	console.log('Current card checklists:', card.checklists);
+	useEffect(() => {
+		console.log('[ChecklistSection] Rendering with card:', card);
+		console.log('[ChecklistSection] Card checklists:', card.checklists);
+	}, [card]);
+	// Memoize the handler for input changes to prevent unnecessary re-renders
+	const handleTitleChange = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			setNewChecklistTitle(e.target.value);
+		},
+		[]
+	);
 
-	const handleAddChecklist = async () => {
+	// Memoize the submit handler
+	const handleAddChecklist = useCallback(async () => {
 		if (!newChecklistTitle.trim() || !isEditing) return;
 
 		try {
-			// Create the checklist through the card API
-			const newChecklist = await cardApi.createChecklist(card.id, {
+			const checklistData: CreateChecklistData = {
 				title: newChecklistTitle.trim(),
-				card_id: 0,
-			});
+				card_id: card.id,
+			};
 
+			// Create the checklist
+			const newChecklist = await checklistApi.createChecklist(checklistData);
+
+			// Update the parent component
 			await onChecklistUpdate(newChecklist);
+
+			// Reset form state
 			setIsAddingChecklist(false);
 			setNewChecklistTitle('');
 
@@ -164,13 +180,20 @@ const ChecklistSection = memo(function ChecklistSection({
 				variant: 'destructive',
 			});
 		}
-	};
+	}, [card.id, newChecklistTitle, isEditing, onChecklistUpdate, toast]);
+
+	// Memoize the cancel handler
+	const handleCancel = useCallback(() => {
+		setIsAddingChecklist(false);
+		setNewChecklistTitle('');
+	}, []);
 
 	return (
 		<div className='space-y-3'>
 			<Label className='flex items-center gap-2'>
 				<IconChecklist className='w-4 h-4' />
-				Checklists
+				Checklists{' '}
+				{card.checklists?.length ? `(${card.checklists.length})` : ''}
 			</Label>
 			<div className='space-y-6'>
 				{card.checklists?.map((checklist) => (
@@ -194,7 +217,7 @@ const ChecklistSection = memo(function ChecklistSection({
 							>
 								<Input
 									value={newChecklistTitle}
-									onChange={(e) => setNewChecklistTitle(e.target.value)}
+									onChange={handleTitleChange} // Use memoized handler
 									placeholder='Checklist title...'
 									autoFocus
 								/>
@@ -208,10 +231,7 @@ const ChecklistSection = memo(function ChecklistSection({
 									</Button>
 									<Button
 										variant='outline'
-										onClick={() => {
-											setIsAddingChecklist(false);
-											setNewChecklistTitle('');
-										}}
+										onClick={handleCancel} // Use memoized handler
 									>
 										Cancel
 									</Button>

@@ -57,13 +57,17 @@ export const cardApi = {
 	async updateCard(cardId: number, data: CardUpdateData): Promise<Card> {
 		try {
 			console.log('Updating card:', cardId, 'with data:', data);
+			// Update the card
 			const response = await api.put(
 				withTrailingSlash(`cards/${cardId}`),
 				data
 			);
 
-			// The response should include all the card data including checklists
-			return response.data;
+			// After updating, fetch the fresh card data to ensure we have all relationships
+			const updatedCard = await api.get(withTrailingSlash(`cards/${cardId}`));
+			console.log('Updated card data:', updatedCard.data);
+
+			return updatedCard.data;
 		} catch (error) {
 			throw handleApiError(error as Error);
 		}
