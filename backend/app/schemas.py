@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, EmailStr
 from datetime import datetime
-from typing import List as PyList, Optional
+from typing import List as PyList, Optional, Any, Dict
 from enum import Enum
 from pydantic.config import ConfigDict
 from .models import PermissionLevel
@@ -272,5 +272,31 @@ class Card(CardBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     checklists: PyList[Checklist] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WebSocketEventType(str, Enum):
+    COMMENT = "comment"
+    ACTIVITY = "activity"
+
+class WebSocketAction(str, Enum):
+    CREATED = "created"
+    UPDATED = "updated"
+    DELETED = "deleted"
+
+class WebSocketEventBase(BaseModel):
+    card_id: int
+    event_type: WebSocketEventType
+    action: WebSocketAction
+    payload: Dict[str, Any]
+
+class WebSocketEventCreate(WebSocketEventBase):
+    user_id: int
+
+class WebSocketEvent(WebSocketEventBase):
+    id: int
+    user_id: int
+    created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

@@ -1,5 +1,5 @@
 # app/models.py
-from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, DateTime, Enum
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, DateTime, Enum, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
@@ -187,3 +187,22 @@ Card.checklists = relationship("Checklist", back_populates="card", cascade="all,
 # Update Board and User models
 Board.members = relationship("BoardMember", back_populates="board")
 User.board_memberships = relationship("BoardMember", back_populates="user")
+
+class WebSocketEvent(Base):
+    __tablename__ = "websocket_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    card_id = Column(Integer, ForeignKey("cards.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    event_type = Column(String)  # 'comment' or 'activity'
+    action = Column(String)  # 'created', 'updated', 'deleted'
+    payload = Column(JSON)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    card = relationship("Card", back_populates="websocket_events")
+    user = relationship("User", back_populates="websocket_events")
+
+# Update Card and User models to include the new relationship
+Card.websocket_events = relationship("WebSocketEvent", back_populates="card")
+User.websocket_events = relationship("WebSocketEvent", back_populates="user")

@@ -16,6 +16,10 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr, BaseModel
 from .auth import authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 from dotenv import load_dotenv
+from .websocket import handle_websocket, manager
+from fastapi import WebSocket, WebSocketDisconnect
+from .auth import get_user_from_token
+from .config import SECRET_KEY, ALGORITHM
 
 load_dotenv()
 
@@ -35,8 +39,59 @@ email_config = ConnectionConfig(
     VALIDATE_CERTS=True
 )
 
+# In routes.py
+@router.websocket("/ws/cards/{card_id}")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    card_id: int,
+    db: Session = Depends(get_db)
+):
+    # Extract token from query parameters
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=4000)
+        return
+
+    # Verify user
+    user = await get_user_from_token(token, db)
+    if not user:
+        await websocket.close(code=4001)
+        return
+
+    # Verify card access
+    card = (
+        db.query(models.Card)
+        .join(models.List)
+        .join(models.Board)
+        .outerjoin(models.BoardMember)
+        .filter(
+            models.Card.id == card_id,
+            or_(
+                models.Board.owner_id == user.id,
+                models.BoardMember.user_id == user.id
+            )
+        )
+        .first()
+    )
+
+    if not card:
+        await websocket.close(code=4002)
+        return
+
+    # Connect only if all checks passed
+    await manager.connect(websocket, card_id, user.id)
 
 fastmail = FastMail(email_config)
+
+
+@router.websocket("/ws/test")
+async def test_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    await websocket.send_json({"message": "Connection successful!"})
+    await websocket.close()
+
+
+
 
 # Board routes
 

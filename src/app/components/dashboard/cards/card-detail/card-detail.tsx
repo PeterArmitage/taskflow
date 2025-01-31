@@ -50,7 +50,6 @@ export function CardDetail({
 		setLabels,
 		setComments,
 		setChecklists,
-
 		refetch,
 	} = useCardData(card, isOpen);
 
@@ -64,25 +63,28 @@ export function CardDetail({
 				console.log('[CardDetail] Updating checklist:', checklist);
 				setIsSaving(true);
 
-				// Update card with new checklist
+				// Update the checklist directly
+				const updatedChecklist = await checklistApi.updateChecklist(
+					checklist.id,
+					checklist
+				);
+
+				// Update local state by replacing the checklist
+				setChecklists([
+					...checklists.filter((c) => c.id !== checklist.id),
+					updatedChecklist,
+				]);
+
+				// Update the parent component
 				const updatedCard = await cardApi.updateCard(card.id, {
 					...card,
 					checklists: [
 						...(card.checklists || []).filter((c) => c.id !== checklist.id),
-						checklist,
+						updatedChecklist,
 					],
 				});
-				console.log(
-					'[CardDetail] Card updated with new checklist:',
-					updatedCard
-				);
-				// Update the parent component
+
 				await onUpdate(updatedCard);
-
-				// Make sure we refresh our local data
-				await refetch();
-
-				console.log('Card updated with new checklist:', updatedCard);
 			} catch (error) {
 				console.error('[CardDetail] Failed to update checklist:', error);
 				toast({
@@ -94,7 +96,7 @@ export function CardDetail({
 				setIsSaving(false);
 			}
 		},
-		[card, onUpdate, refetch, toast]
+		[card, onUpdate, setChecklists, toast, checklists]
 	);
 
 	const handleChecklistDelete = useCallback(
@@ -145,14 +147,18 @@ export function CardDetail({
 
 			// First update the parent
 			await onUpdate(updatedCard);
-
+			setIsEditing(false);
 			// Then refresh our local data
 			await refetch();
+			toast({
+				title: 'Success',
+				description: 'Card updated successfully',
+			});
 		} catch (error) {
 			console.error('Failed to update card:', error);
 			toast({
 				title: 'Error',
-				description: 'Failed to update card. Please try again.',
+				description: 'Failed to update card',
 				variant: 'destructive',
 			});
 		} finally {
@@ -210,6 +216,22 @@ export function CardDetail({
 		[card, setLabels, onUpdate, refetch, toast]
 	);
 
+	const handleModalClose = () => {
+		if (isEditing) {
+			// If editing, show confirmation dialog
+			if (
+				window.confirm(
+					'You have unsaved changes. Are you sure you want to close?'
+				)
+			) {
+				setIsEditing(false);
+				onClose();
+			}
+		} else {
+			// If not editing, close directly
+			onClose();
+		}
+	};
 	const handleCommentUpdate = useCallback(
 		async (commentId: number | string, content: string) => {
 			try {
@@ -270,17 +292,14 @@ export function CardDetail({
 		[card, checklists]
 	);
 	return (
-		<Dialog
-			open={isOpen}
-			onOpenChange={(open) => {
-				if (!open) {
-					onClose();
-				}
-			}}
-		>
+		<Dialog open={isOpen} onOpenChange={handleModalClose}>
 			<DialogContent
 				className={cn('max-w-4xl p-0', className)}
-				onPointerDownOutside={(e) => e.preventDefault()}
+				onPointerDownOutside={(e) => {
+					if (isEditing) {
+						e.preventDefault();
+					}
+				}}
 				onInteractOutside={(e) => e.preventDefault()}
 				onEscapeKeyDown={(e) => e.preventDefault()}
 			>

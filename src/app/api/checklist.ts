@@ -27,18 +27,17 @@ export const checklistApi = {
 
 	async updateChecklist(
 		checklistId: number,
-		title: string
+		data: UpdateChecklistData
 	): Promise<Checklist> {
 		try {
-			console.log('API: Updating checklist:', { checklistId, title });
+			console.log('[API] Updating checklist:', { checklistId, data });
 			const response = await api.put(
 				withTrailingSlash(`checklists/${checklistId}`),
-				{ title }
+				data
 			);
-			console.log('API: Checklist update response:', response.data);
 			return response.data;
 		} catch (error) {
-			console.error('API: Update checklist error:', error);
+			console.error('[API] Update checklist error:', error);
 			throw handleApiError(error as Error);
 		}
 	},
@@ -48,51 +47,52 @@ export const checklistApi = {
 		data: UpdateChecklistItemData
 	): Promise<ChecklistItem> {
 		try {
-			console.log('Updating checklist item:', { itemId, data });
+			console.log('[API] Updating checklist item:', { itemId, data });
 			const response = await api.put(
 				withTrailingSlash(`checklist-items/${itemId}`),
 				data
 			);
 			return response.data;
 		} catch (error) {
-			console.error('Update checklist item error:', error);
+			console.error('[API] Update checklist item error:', error);
 			throw handleApiError(error as Error);
 		}
 	},
 
 	async createItem(data: CreateChecklistItemData): Promise<ChecklistItem> {
 		try {
-			console.log('Creating checklist item:', data);
+			console.log('[API] Creating checklist item:', data);
 			const response = await api.post(
 				withTrailingSlash('checklist-items'),
 				data
 			);
 			return response.data;
 		} catch (error) {
-			console.error('Create checklist item error:', error);
+			console.error('[API] Create checklist item error:', error);
 			throw handleApiError(error as Error);
 		}
 	},
 
 	async deleteItem(itemId: number): Promise<void> {
 		try {
-			console.log('Deleting checklist item:', itemId);
+			console.log('[API] Deleting checklist item:', itemId);
 			await api.delete(withTrailingSlash(`checklist-items/${itemId}`));
 		} catch (error) {
-			console.error('Delete checklist item error:', error);
+			console.error('[API] Delete checklist item error:', error);
 			throw handleApiError(error as Error);
 		}
 	},
 
 	async deleteChecklist(checklistId: number): Promise<void> {
 		try {
-			console.log('Deleting checklist:', checklistId);
+			console.log('[API] Deleting checklist:', checklistId);
 			await api.delete(withTrailingSlash(`checklists/${checklistId}`));
 		} catch (error) {
-			console.error('Delete checklist error:', error);
+			console.error('[API] Delete checklist error:', error);
 			throw handleApiError(error as Error);
 		}
 	},
+
 	async getChecklists(cardId: number): Promise<Checklist[]> {
 		try {
 			console.log('[API] Fetching checklists for card:', cardId);

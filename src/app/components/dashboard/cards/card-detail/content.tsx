@@ -149,22 +149,17 @@ const ChecklistSection = memo(function ChecklistSection({
 	);
 
 	// Memoize the submit handler
-	const handleAddChecklist = useCallback(async () => {
+	const handleAddChecklist = async () => {
 		if (!newChecklistTitle.trim() || !isEditing) return;
 
 		try {
-			const checklistData: CreateChecklistData = {
+			const newChecklist = await checklistApi.createChecklist({
 				title: newChecklistTitle.trim(),
 				card_id: card.id,
-			};
+				position: card.checklists?.length || 0,
+			});
 
-			// Create the checklist
-			const newChecklist = await checklistApi.createChecklist(checklistData);
-
-			// Update the parent component
 			await onChecklistUpdate(newChecklist);
-
-			// Reset form state
 			setIsAddingChecklist(false);
 			setNewChecklistTitle('');
 
@@ -176,11 +171,11 @@ const ChecklistSection = memo(function ChecklistSection({
 			console.error('Failed to create checklist:', error);
 			toast({
 				title: 'Error',
-				description: 'Failed to create checklist. Please try again.',
+				description: 'Failed to create checklist',
 				variant: 'destructive',
 			});
 		}
-	}, [card.id, newChecklistTitle, isEditing, onChecklistUpdate, toast]);
+	};
 
 	// Memoize the cancel handler
 	const handleCancel = useCallback(() => {
@@ -384,9 +379,9 @@ const CommentsSection = memo(function CommentsSection({
 			<Comments
 				cardId={cardId}
 				comments={comments}
-				onUpdate={onCommentsUpdate}
 				onUpdateComment={onUpdate}
 				onDeleteComment={onDelete}
+				onUpdate={onCommentsUpdate}
 			/>
 		</div>
 	);

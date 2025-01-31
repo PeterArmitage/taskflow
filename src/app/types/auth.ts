@@ -82,6 +82,7 @@ export interface AuthContextType {
 	signin: (data: AuthFormData) => Promise<AuthResponse>;
 	signout: () => Promise<void>;
 	updateUser: (data: Partial<User>) => void;
+	getToken: () => string | null;
 }
 
 export interface AvatarUpdateResponse {

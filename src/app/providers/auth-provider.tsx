@@ -139,6 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		signup,
 		signout,
 		updateUser,
+		getToken: () => storage.getItem('token'),
 	};
 
 	return (

@@ -7,3 +7,5 @@ export interface WebSocketMessage {
 	cardId: number;
 	data: Comment | Activity;
 }
+export type WebSocketMessageType = 'comment' | 'card_update' | 'activity';
+export type WebSocketAction = 'created' | 'updated' | 'deleted';

@@ -22,6 +22,7 @@ export interface Checklist {
 export interface CreateChecklistData {
 	title: string;
 	card_id: number;
+	position?: number;
 }
 
 export interface CreateChecklistItemData {

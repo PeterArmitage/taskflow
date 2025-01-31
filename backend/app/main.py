@@ -1,10 +1,10 @@
 # main.py
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from .database import engine
+from .database import engine, get_db
 from . import models
 from .routes import router
 from .exceptions import (
@@ -20,12 +20,41 @@ from fastapi_limiter.depends import RateLimiter
 import redis.asyncio as redis
 from redis.exceptions import ConnectionError as RedisConnectionError
 from dotenv import load_dotenv
+from jose import JWTError, jwt
+from sqlalchemy.orm import Session
+from typing import List, Dict
+from .config import SECRET_KEY, ALGORITHM
 
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 models.Base.metadata.create_all(bind=engine)
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[int, List[WebSocket]] = {}
+        self.socket_users: Dict[WebSocket, int] = {}
+
+    async def connect(self, websocket: WebSocket, card_id: int, user_id: int):
+        await websocket.accept()
+        if card_id not in self.active_connections:
+            self.active_connections[card_id] = []
+        self.active_connections[card_id].append(websocket)
+        self.socket_users[websocket] = user_id
+
+    async def disconnect(self, websocket: WebSocket, card_id: int):
+        if card_id in self.active_connections:
+            self.active_connections[card_id].remove(websocket)
+
+    async def broadcast(self, message: dict, card_id: int):
+        if card_id in self.active_connections:
+            for connection in self.active_connections[card_id]:
+                await connection.send_json(message)
+
+manager = ConnectionManager()
+
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,6 +87,8 @@ app.add_middleware(
 )
 
 app.include_router(router)
+
+
 
 # Exception handlers
 @app.exception_handler(NotFoundException)
