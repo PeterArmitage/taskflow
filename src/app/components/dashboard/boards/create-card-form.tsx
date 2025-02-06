@@ -11,6 +11,7 @@ export interface CreateCardFormProps {
 	listId: number;
 	onCancel: () => void;
 	onSuccess: () => void;
+	onCreate: (data: { title: string; description?: string }) => Promise<void>;
 }
 
 export function CreateCardForm({

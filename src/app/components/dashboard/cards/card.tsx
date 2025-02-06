@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card } from '@/app/types/boards';
-import { CardDetail } from './card-detail';
+import { CardDetail } from './card-detail/card-detail';
 import {
 	IconCalendar,
 	IconPaperclip,
@@ -15,6 +15,8 @@ interface CardProps {
 	card: Card & { comments: AnyComment[] };
 	onUpdate: (cardId: number, data: Partial<Card>) => Promise<void>;
 	onDelete: (cardId: number) => Promise<void>;
+	onClick?: () => void;
+	isSelected?: boolean;
 }
 
 export function CardComponent({ card, onUpdate, onDelete }: CardProps) {

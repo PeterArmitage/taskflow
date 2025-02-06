@@ -38,13 +38,11 @@ export function useWebSocket({ cardId, onMessage }: UseWebSocketProps) {
 	onMessageRef.current = onMessage;
 
 	const connect = useCallback(() => {
+		if (wsRef.current?.readyState === WebSocket.OPEN) {
+			console.log('WebSocket already connected');
+			return;
+		}
 		try {
-			// Prevent duplicate connections
-			if (wsRef.current?.readyState === WebSocket.OPEN) {
-				console.log('WebSocket already connected');
-				return;
-			}
-
 			// Check reconnection limit
 			if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
 				setError(
@@ -109,19 +107,14 @@ export function useWebSocket({ cardId, onMessage }: UseWebSocketProps) {
 			};
 
 			ws.onerror = (event) => {
-				console.error('WebSocket error:', {
+				console.error('WebSocket error details:', {
 					readyState: ws.readyState,
 					url: fullUrl,
 					error: event,
 				});
-
-				if (wsRef.current?.readyState !== WebSocket.CLOSED) {
-					reconnectAttempts.current += 1;
-				}
-
 				setError(
 					new Error(
-						`Connection error (Attempt ${reconnectAttempts.current}/${MAX_RECONNECT_ATTEMPTS})`
+						`WebSocket connection error (Attempt ${reconnectAttempts.current}/${MAX_RECONNECT_ATTEMPTS})`
 					)
 				);
 				setIsConnected(false);
@@ -131,23 +124,19 @@ export function useWebSocket({ cardId, onMessage }: UseWebSocketProps) {
 				console.log(`WebSocket closed with code ${event.code}:`, event.reason);
 				setIsConnected(false);
 
-				// Don't reconnect on normal closure
-				if (event.code === 1000 || event.code === 1001) {
-					console.log('WebSocket closed normally');
-					return;
-				}
-
-				// Clear existing reconnection timeout
-				if (reconnectTimeoutRef.current) {
-					clearTimeout(reconnectTimeoutRef.current);
-				}
-
-				// Schedule reconnection if under max attempts
-				if (reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
-					console.log(
-						`Scheduling reconnection in ${RECONNECT_DELAY / 1000} seconds...`
+				// Handle specific close codes
+				if (event.code === 1006) {
+					console.error(
+						'WebSocket connection failed abnormally. Check token and server.'
 					);
-					reconnectTimeoutRef.current = setTimeout(connect, RECONNECT_DELAY);
+				}
+
+				// Reconnect only for non-normal closures
+				if (event.code !== 1000) {
+					setTimeout(() => {
+						reconnectAttempts.current += 1;
+						connect();
+					}, 5000);
 				}
 			};
 

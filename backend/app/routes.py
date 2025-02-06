@@ -495,32 +495,80 @@ def read_list(list_id: int, db: Session = Depends(get_db)):
 
 # Update a specific list
 @router.put("/lists/{list_id}", response_model=schemas.List)
-def update_list(list_id: int, list: schemas.ListUpdate, db: Session = Depends(get_db)):
-    # Query the database for a list with the given ID
-    db_list = db.query(models.List).filter(models.List.id == list_id).first()
-    # If the list is not found, raise a 404 error
-    if db_list is None:
-        raise HTTPException(status_code=404, detail="List not found")
-    # Update the list attributes with the provided values, if they are not None
-    for var, value in vars(list).items():
-        setattr(db_list, var, value) if value is not None else None
-    # Add the updated list to the database
-    db.add(db_list)
-    # Commit the changes to the database
-    db.commit()
-    # Refresh the list object to ensure it reflects the current state in the database
-    db.refresh(db_list)
-    # Return the updated list
-    return db_list
+def update_list(
+    list_id: int,
+    list_data: schemas.ListUpdate,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    print(f"Updating list {list_id} with data:", list_data.model_dump())  # Debug log
+    
+    # Get the list and verify ownership
+    db_list = (
+        db.query(models.List)
+        .join(models.Board)
+        .filter(
+            models.List.id == list_id,
+            models.Board.owner_id == current_user.id
+        )
+        .first()
+    )
+    
+    if not db_list:
+        raise HTTPException(
+            status_code=404,
+            detail="List not found or you don't have permission"
+        )
+    
+    # Update only the provided fields
+    update_data = list_data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_list, key, value)
+    
+    try:
+        db.commit()
+        db.refresh(db_list)
+        print("List updated successfully:", db_list)  # Debug log
+        return db_list
+    except Exception as e:
+        db.rollback()
+        print("Error updating list:", str(e))  # Debug log
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete("/lists/{list_id}", response_model=schemas.List)
-def delete_list(list_id: int, db: Session = Depends(get_db)):
-    db_list = db.query(models.List).filter(models.List.id == list_id).first()
-    if db_list is None:
-        raise HTTPException(status_code=404, detail="List not found")
-    db.delete(db_list)
-    db.commit()
-    return db_list
+def delete_list(
+    list_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    print(f"Deleting list {list_id}")  # Debug log
+    
+    # Get the list and verify ownership
+    db_list = (
+        db.query(models.List)
+        .join(models.Board)
+        .filter(
+            models.List.id == list_id,
+            models.Board.owner_id == current_user.id
+        )
+        .first()
+    )
+    
+    if not db_list:
+        raise HTTPException(
+            status_code=404,
+            detail="List not found or you don't have permission"
+        )
+    
+    try:
+        db.delete(db_list)
+        db.commit()
+        print("List deleted successfully")  # Debug log
+        return {"detail": "List deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        print("Error deleting list:", str(e))  # Debug log
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/lists/{list_id}/cards", response_model=list[schemas.Card])
 def read_cards_for_list(

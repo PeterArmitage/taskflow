@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, model_validator
 from datetime import datetime
-from typing import List as PyList, Optional, Any, Dict
+from typing import Annotated, List as PyList, Optional, Any, Dict
 from enum import Enum
 from pydantic.config import ConfigDict
 from .models import PermissionLevel
@@ -29,10 +29,21 @@ class ListCreate(BaseModel):
     board_id: int = Field(..., gt=0)
 
 class ListUpdate(BaseModel):
-    title: Optional[str] = None
+    title: Annotated[str, Field(min_length=1, max_length=100)]
     board_id: Optional[int] = None
+    position: Optional[int] = None
 
+    model_config = ConfigDict(from_attributes=True)
 
+    # New way to validate in Pydantic v2
+    @model_validator(mode='before')
+    @classmethod
+    def validate_fields(cls, values):
+        if title := values.get('title'):
+            if not title.strip():
+                raise ValueError('Title cannot be empty')
+            values['title'] = title.strip()
+        return values
 
 class CardBase(BaseModel):
     title: str

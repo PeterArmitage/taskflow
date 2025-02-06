@@ -316,9 +316,9 @@ export function CardDetail({
 							isEditing={isEditing}
 							setTitle={setTitle}
 							card={card}
-							dueDate={dueDate}
 							onEdit={() => setIsEditing(!isEditing)}
 							onDelete={onDelete}
+							onClose={onClose}
 						/>
 
 						<CardDetailContent

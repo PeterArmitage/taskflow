@@ -1,9 +1,10 @@
+// components/dashboard/boards/board-view.tsx
 import { useState, useCallback } from 'react';
 import { DndContext } from '@dnd-kit/core';
 import { SortableContext } from '@dnd-kit/sortable';
 import { Board, Card } from '@/app/types/boards';
 import { BoardList } from './board-list';
-import { CardDetail } from '../cards/card-detail';
+import { CardDetail } from '@/app/components/dashboard/cards/card-detail/card-detail';
 import { CreateListForm } from './create-list-form';
 import { IconPlus } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
@@ -17,15 +18,21 @@ import { listApi } from '@/app/api/list';
 interface BoardViewProps {
 	board: Board;
 	onUpdate: () => void;
+	onListEdit: (listId: number, newTitle: string) => Promise<void>;
+	onListDelete: (listId: number) => Promise<void>;
+	activeId: string | null;
 }
 
-export function BoardView({ board, onUpdate }: BoardViewProps) {
-	// State and hooks
+export function BoardView({
+	board,
+	onUpdate,
+	onListEdit,
+	onListDelete,
+}: BoardViewProps) {
 	const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 	const [showCreateList, setShowCreateList] = useState(false);
 	const { toast } = useToast();
 
-	// Initialize drag and drop functionality
 	const {
 		sensors,
 		activeId,
@@ -36,17 +43,17 @@ export function BoardView({ board, onUpdate }: BoardViewProps) {
 		handleDragEnd,
 	} = useDragDrop({ board, onUpdate });
 
-	// Handle card movement between lists
 	const handleCardMove = useCallback(
 		async (cardId: number, sourceListId: number, targetListId: number) => {
 			try {
 				await cardApi.moveCard(cardId, targetListId);
 				onUpdate();
 				toast({
-					title: 'Card moved',
-					description: 'Card has been moved successfully',
+					title: 'Success',
+					description: 'Card moved successfully',
 				});
 			} catch (error) {
+				console.error('Failed to move card:', error);
 				toast({
 					title: 'Error',
 					description: 'Failed to move card',
@@ -57,13 +64,13 @@ export function BoardView({ board, onUpdate }: BoardViewProps) {
 		[onUpdate, toast]
 	);
 
-	// Handle list reordering
 	const handleListMove = useCallback(
 		async (listId: number, direction: 'left' | 'right') => {
 			try {
 				await listApi.reorderList(listId, direction);
 				onUpdate();
 			} catch (error) {
+				console.error('Failed to move list:', error);
 				toast({
 					title: 'Error',
 					description: 'Failed to move list',
@@ -74,7 +81,48 @@ export function BoardView({ board, onUpdate }: BoardViewProps) {
 		[onUpdate, toast]
 	);
 
-	// Initialize keyboard navigation
+	// List deletion handler
+	const handleListDelete = async (listId: number) => {
+		try {
+			await listApi.deleteList(listId);
+			// Force a refresh of the board data
+			onUpdate();
+			toast({
+				title: 'Success',
+				description: 'List deleted successfully',
+			});
+		} catch (error) {
+			console.error('Failed to delete list:', error);
+			toast({
+				title: 'Error',
+				description: 'Failed to delete list',
+				variant: 'destructive',
+			});
+		}
+	};
+
+	// List edit handler
+	const handleListEdit = async (listId: number, newTitle: string) => {
+		try {
+			console.log('BoardView - Updating list:', { listId, newTitle });
+			await listApi.updateList(listId, { title: newTitle });
+			console.log('BoardView - List updated, refreshing...');
+
+			await onUpdate();
+			toast({
+				title: 'Success',
+				description: 'List updated successfully',
+			});
+		} catch (error) {
+			console.error('BoardView - Update failed:', error);
+			toast({
+				title: 'Error',
+				description: 'Failed to update list',
+				variant: 'destructive',
+			});
+		}
+	};
+
 	const {
 		selectedCardId,
 		selectedListId,
@@ -130,6 +178,8 @@ export function BoardView({ board, onUpdate }: BoardViewProps) {
 										list={list}
 										onUpdate={onUpdate}
 										onCardSelect={setSelectedCard}
+										onListDelete={onListDelete}
+										onListEdit={onListEdit}
 										isActive={activeId === list.id.toString()}
 										isSelected={selectedListId === list.id.toString()}
 										selectedCardId={selectedCardId}

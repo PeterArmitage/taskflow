@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/app/hooks/useAuth';
 import { AnyComment } from '@/app/types/comments';
 import { cn } from '@/lib/utils';
+import { useWebSocket } from '@/app/hooks/use-websocket';
 
 interface CommentItemProps {
 	comment: AnyComment;
@@ -26,6 +27,11 @@ export function CommentItem({
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const { user } = useAuth();
 
+	const { sendMessage } = useWebSocket({
+		cardId: comment.card_id,
+		onMessage: () => {},
+	});
+
 	// Safely handle potentially missing user data
 	const commentUser = comment.user || {
 		username: 'Unknown User',
@@ -42,6 +48,17 @@ export function CommentItem({
 		try {
 			setIsSubmitting(true);
 			await onUpdate(comment.id, editedContent.trim());
+
+			sendMessage({
+				type: 'comment',
+				action: 'updated',
+				cardId: comment.card_id,
+				data: {
+					...comment,
+					content: editedContent.trim(),
+					updated_at: new Date().toISOString(),
+				},
+			});
 			setIsEditing(false);
 		} catch (error) {
 			console.error('Failed to update comment:', error);
@@ -55,6 +72,13 @@ export function CommentItem({
 		try {
 			setIsSubmitting(true);
 			await onDelete(comment.id);
+
+			sendMessage({
+				type: 'comment',
+				action: 'deleted',
+				cardId: comment.card_id,
+				data: { id: comment.id, user_id: comment.user_id },
+			});
 		} catch (error) {
 			console.error('Failed to delete comment:', error);
 		} finally {

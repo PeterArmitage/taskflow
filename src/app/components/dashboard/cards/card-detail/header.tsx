@@ -1,76 +1,137 @@
 // components/dashboard/cards/card-detail/header.tsx
-import { memo } from 'react';
-import { Button } from '@/components/ui/button';
-import {
-	IconClock,
-	IconCalendar,
-	IconEdit,
-	IconTrash,
-} from '@tabler/icons-react';
+import { useState } from 'react';
 import { Card } from '@/app/types/boards';
-import { DateHelper } from '@/app/types/helpers';
+import { IconX, IconTrash, IconPencil } from '@tabler/icons-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface CardDetailHeaderProps {
+	card: Card;
 	title: string;
 	isEditing: boolean;
 	setTitle: (title: string) => void;
-	card: Card;
-	dueDate: string | null;
 	onEdit: () => void;
-	onDelete: () => void;
+	onDelete: () => Promise<void>;
+	onClose: () => void;
+	isSaving?: boolean;
 }
 
-export const CardDetailHeader = memo(function CardDetailHeader({
+export function CardDetailHeader({
+	card,
 	title,
 	isEditing,
 	setTitle,
-	card,
-	dueDate,
 	onEdit,
 	onDelete,
+	onClose,
+	isSaving = false,
 }: CardDetailHeaderProps) {
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+	const [isDeleting, setIsDeleting] = useState(false);
+
+	const handleDelete = async () => {
+		try {
+			setIsDeleting(true);
+			await onDelete();
+			setIsDeleteDialogOpen(false);
+			onClose();
+		} catch (error) {
+			console.error('Failed to delete card:', error);
+			setIsDeleteDialogOpen(false);
+		} finally {
+			setIsDeleting(false);
+		}
+	};
+
 	return (
-		<div className='p-6 border-b dark:border-neutral-800'>
-			<div className='flex items-start justify-between'>
-				<div className='flex-1'>
-					{isEditing ? (
-						<input
-							type='text'
-							value={title}
-							onChange={(e) => setTitle(e.target.value)}
-							className='text-2xl font-semibold bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1 w-full'
-							autoFocus
-						/>
-					) : (
-						<h2 className='text-2xl font-semibold px-2'>{title}</h2>
-					)}
-					<div className='flex items-center gap-4 mt-2 text-neutral-500'>
-						<div className='flex items-center gap-2 text-sm'>
-							<IconClock className='w-4 h-4' />
-							Created {DateHelper.toDate(card.created_at)?.toLocaleDateString()}
-						</div>
-						{dueDate && (
-							<div className='flex items-center gap-2 text-sm'>
-								<IconCalendar className='w-4 h-4' />
-								Due {DateHelper.toDate(dueDate)?.toLocaleDateString()}
-							</div>
+		<>
+			<div className='p-6 border-b dark:border-neutral-800'>
+				<div className='flex items-center justify-between gap-4'>
+					{/* Title */}
+					<div className='flex-1'>
+						{isEditing ? (
+							<Input
+								value={title}
+								onChange={(e) => setTitle(e.target.value)}
+								className='text-lg font-semibold'
+								placeholder='Card title'
+								autoFocus
+								disabled={isSaving}
+							/>
+						) : (
+							<h2 className='text-lg font-semibold truncate'>{title}</h2>
 						)}
 					</div>
-				</div>
-				<div className='flex gap-2'>
-					<Button variant='ghost' size='sm' onClick={onEdit}>
-						<IconEdit className='w-4 h-4' />
-					</Button>
-					<Button
-						variant='ghost'
-						size='sm'
-						onClick={onDelete}
-						className='text-red-500 hover:text-red-600'
-					>
-						<IconTrash className='w-4 h-4' />
-					</Button>
+
+					{/* Action Buttons */}
+					<div className='flex items-center gap-2'>
+						<Button
+							variant='ghost'
+							size='sm'
+							onClick={onEdit}
+							disabled={isSaving}
+							className='text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+						>
+							<IconPencil className='h-4 w-4' />
+						</Button>
+						<Button
+							variant='ghost'
+							size='sm'
+							onClick={() => setIsDeleteDialogOpen(true)}
+							disabled={isDeleting || isSaving}
+							className='text-red-500 hover:text-red-700 dark:hover:text-red-400'
+						>
+							<IconTrash className='h-4 w-4' />
+						</Button>
+						<Button
+							variant='ghost'
+							size='sm'
+							onClick={onClose}
+							disabled={isDeleting || isSaving}
+							className='text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+						>
+							<IconX className='h-4 w-4' />
+						</Button>
+					</div>
 				</div>
 			</div>
-		</div>
+
+			{/* Delete Confirmation Dialog */}
+			<AlertDialog
+				open={isDeleteDialogOpen}
+				onOpenChange={setIsDeleteDialogOpen}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Delete Card</AlertDialogTitle>
+						<AlertDialogDescription>
+							Are you sure you want to delete &quot;{card.title}&quot;? This
+							action cannot be undone and all associated data (comments,
+							checklists, etc.) will be permanently removed.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={handleDelete}
+							disabled={isDeleting}
+							className='bg-red-500 hover:bg-red-600 text-white'
+						>
+							{isDeleting ? 'Deleting...' : 'Delete Card'}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</>
 	);
-});
+}

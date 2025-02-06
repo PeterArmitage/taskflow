@@ -133,3 +133,4 @@ async def rate_limit_if_redis():
 @app.get("/", dependencies=[Depends(rate_limit_if_redis)])
 async def root():
     return {"message": "Hello World"}
+

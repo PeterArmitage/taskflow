@@ -2,9 +2,9 @@
 import { List } from '@/app/types/boards';
 import { api, withTrailingSlash, handleApiError } from './api';
 
-interface ListReorderParams {
-	listId: number;
-	direction: 'left' | 'right';
+interface ListUpdateData {
+	title: string;
+	position?: number;
 }
 
 export const listApi = {
@@ -18,19 +18,39 @@ export const listApi = {
 		}
 	},
 
-	async updateList(id: number, data: { title: string }): Promise<List> {
+	async updateList(listId: number, data: ListUpdateData): Promise<List> {
 		try {
-			const response = await api.put(withTrailingSlash(`lists/${id}`), data);
+			console.log('listApi updateList - Starting request:', { listId, data });
+			const response = await api.put(
+				withTrailingSlash(`lists/${listId}`),
+				data
+			);
+			console.log('listApi updateList - Response:', response.data);
 			return response.data;
 		} catch (error) {
+			console.error('listApi updateList - Error:', error);
 			throw handleApiError(error as Error);
 		}
 	},
 
-	async deleteList(id: number): Promise<void> {
+	async deleteList(id: number): Promise<boolean> {
 		try {
-			await api.delete(withTrailingSlash(`lists/${id}`));
+			console.log(`Attempting to delete list ${id}`);
+
+			const response = await api.delete(withTrailingSlash(`lists/${id}`));
+
+			console.log(`Successfully deleted list ${id}`);
+
+			return response.status === 200;
 		} catch (error) {
+			console.error('Error deleting list:', {
+				listId: id,
+				error: error,
+				status: (error as { response?: { status?: number } })?.response?.status,
+				message: (error as { response?: { data?: { detail?: string } } })
+					?.response?.data?.detail,
+			});
+
 			throw handleApiError(error as Error);
 		}
 	},

@@ -170,8 +170,10 @@ export const cardApi = {
 	// Delete a card
 	async deleteCard(cardId: number): Promise<void> {
 		try {
+			console.log('Deleting card:', cardId);
 			await api.delete(withTrailingSlash(`cards/${cardId}`));
 		} catch (error) {
+			console.error('Failed to delete card:', error);
 			throw handleApiError(error as Error);
 		}
 	},
@@ -210,6 +212,18 @@ export const cardApi = {
 		try {
 			await api.delete(`/comments/${commentId}`);
 		} catch (error) {
+			throw handleApiError(error as Error);
+		}
+	},
+	async updateCardTitle(cardId: number, title: string): Promise<Card> {
+		try {
+			console.log('Updating card title:', { cardId, title });
+			const response = await api.put(withTrailingSlash(`cards/${cardId}`), {
+				title,
+			});
+			return response.data;
+		} catch (error) {
+			console.error('Failed to update card title:', error);
 			throw handleApiError(error as Error);
 		}
 	},
