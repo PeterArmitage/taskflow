@@ -14,6 +14,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { cardApi } from '@/app/api/card';
 import { listApi } from '@/app/api/list';
+import { IntegratedCard } from '../cards/integrated-card';
+import { useWebSocket } from '@/app/hooks/use-websocket';
+import { BoardRealTimeUpdate } from '@/app/types/real-time-updates';
+import { WebSocketMessage } from '@/app/types/websocket';
 
 interface BoardViewProps {
 	board: Board;
@@ -123,6 +127,59 @@ export function BoardView({
 		}
 	};
 
+	const { sendMessage } = useWebSocket({
+		boardId: board.id,
+		cardId: 0,
+		onMessage: (message: WebSocketMessage | BoardRealTimeUpdate) => {
+			if ('type' in message && message.type === 'board') {
+				onUpdate();
+			}
+		},
+	});
+
+	const renderCard = (card: Card) => (
+		<IntegratedCard
+			key={card.id}
+			card={card}
+			onUpdate={async (cardId, data) => {
+				try {
+					await cardApi.updateCard(cardId, data);
+					onUpdate();
+				} catch (error) {
+					toast({
+						title: 'Error',
+						description: 'Failed to update card',
+						variant: 'destructive',
+					});
+				}
+			}}
+			onDelete={async (cardId) => {
+				try {
+					await cardApi.deleteCard(cardId);
+					onUpdate();
+				} catch (error) {
+					toast({
+						title: 'Error',
+						description: 'Failed to delete card',
+						variant: 'destructive',
+					});
+				}
+			}}
+			onMove={async (cardId, sourceListId, targetListId, position) => {
+				try {
+					await cardApi.moveCard(cardId, targetListId, position);
+					onUpdate();
+				} catch (error) {
+					toast({
+						title: 'Error',
+						description: 'Failed to move card',
+						variant: 'destructive',
+					});
+				}
+			}}
+		/>
+	);
+
 	const {
 		selectedCardId,
 		selectedListId,
@@ -186,6 +243,7 @@ export function BoardView({
 										onCardFocus={setKeyboardSelectedCard}
 										onListFocus={setKeyboardSelectedList}
 										className={draggedItemType === 'card' ? 'drop-target' : ''}
+										renderCard={renderCard}
 									/>
 								))}
 							</SortableContext>

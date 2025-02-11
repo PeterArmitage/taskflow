@@ -48,6 +48,8 @@ export interface Card extends Timestamps {
 	title: string;
 	description?: string;
 	list_id: number;
+	board_id: number;
+	user_id: number;
 	created_at: string;
 	updated_at: string;
 	due_date?: string | null;
@@ -63,6 +65,8 @@ export interface Card extends Timestamps {
 	checklists?: Checklist[];
 	archived?: boolean;
 	cover_image_url?: string;
+	last_modified_by?: number;
+	active_users?: number[];
 }
 export interface BoardWithLists extends Board {
 	lists: (List & {

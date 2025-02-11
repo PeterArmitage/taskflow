@@ -15,7 +15,7 @@ import { cardApi } from '@/app/api/card';
 import { checklistApi } from '@/app/api/checklist';
 import { Checklist, UpdateChecklistData } from '@/app/types/checklist';
 
-interface CardDetailProps {
+export interface CardDetailProps {
 	card: Card & { comments?: AnyComment[] };
 	isOpen: boolean;
 	onClose: () => void;
@@ -23,6 +23,7 @@ interface CardDetailProps {
 	onDelete: () => Promise<void>;
 	loading?: boolean;
 	className?: string;
+	activeUsers?: number[];
 }
 
 export function CardDetail({

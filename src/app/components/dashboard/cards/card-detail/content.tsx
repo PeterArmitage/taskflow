@@ -24,8 +24,8 @@ import { useToast } from '@/hooks/use-toast';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@radix-ui/react-checkbox';
-import { cardApi } from '@/app/api/card';
+import { TypingIndicator } from '../typing-indicator';
+import { useAuth } from '@/app/hooks/useAuth';
 
 interface CardDetailContentProps {
 	card: Card;
@@ -46,6 +46,7 @@ interface CardDetailContentProps {
 	onCommentsUpdate: (comments: AnyComment[]) => void;
 	onChecklistUpdate: (checklist: Checklist) => Promise<void>;
 	onChecklistDelete: (checklistId: number) => Promise<void>;
+	activeUsers?: number[];
 }
 
 export const CardDetailContent = memo(function CardDetailContent({
@@ -212,7 +213,7 @@ const ChecklistSection = memo(function ChecklistSection({
 							>
 								<Input
 									value={newChecklistTitle}
-									onChange={handleTitleChange} // Use memoized handler
+									onChange={handleTitleChange}
 									placeholder='Checklist title...'
 									autoFocus
 								/>
@@ -224,10 +225,7 @@ const ChecklistSection = memo(function ChecklistSection({
 									>
 										Add Checklist
 									</Button>
-									<Button
-										variant='outline'
-										onClick={handleCancel} // Use memoized handler
-									>
+									<Button variant='outline' onClick={handleCancel}>
 										Cancel
 									</Button>
 								</div>
@@ -363,19 +361,29 @@ const CommentsSection = memo(function CommentsSection({
 	onUpdate,
 	onDelete,
 	onCommentsUpdate,
+	activeUsers,
 }: {
 	cardId: number;
 	comments: AnyComment[];
 	onUpdate: (commentId: number | string, content: string) => Promise<void>;
 	onDelete: (commentId: number | string) => Promise<void>;
 	onCommentsUpdate: (comments: AnyComment[]) => void;
+	activeUsers?: number[];
 }) {
+	const { user } = useAuth();
+
+	if (!user) {
+		return <div className='text-neutral-500'>Loading user information...</div>;
+	}
 	return (
 		<div className='space-y-3'>
 			<Label className='flex items-center gap-2'>
 				<IconMessageCircle className='w-4 h-4' />
 				Comments ({comments.length})
 			</Label>
+			<div className='relative'>
+				<TypingIndicator cardId={cardId} currentUser={user} />
+			</div>
 			<Comments
 				cardId={cardId}
 				comments={comments}

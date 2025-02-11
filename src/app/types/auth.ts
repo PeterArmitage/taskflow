@@ -8,6 +8,7 @@ export interface User {
 	name?: string;
 	bio?: string;
 	token?: string;
+	boardId?: number;
 }
 
 export interface AuthFormData {

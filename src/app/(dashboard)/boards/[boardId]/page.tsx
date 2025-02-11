@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { Board, Card } from '@/app/types/boards';
+import { Board, Card, List } from '@/app/types/boards';
 import { boardApi } from '@/app/api/board';
 import { Loading } from '@/app/components/ui/loading';
 import { BoardView } from '@/app/components/dashboard/boards/board-view';
@@ -19,6 +19,10 @@ import {
 	DragStartEvent,
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove } from '@dnd-kit/sortable';
+import { useWebSocket } from '@/app/hooks/use-websocket';
+import { BoardRealTimeUpdate } from '@/app/types/real-time-updates';
+import { WebSocketMessage } from '@/app/types/websocket';
+import { useAuth } from '@/app/hooks/useAuth';
 
 export default function BoardPage() {
 	const { boardId } = useParams();
@@ -26,6 +30,7 @@ export default function BoardPage() {
 	const [loading, setLoading] = useState(true);
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const { toast } = useToast();
+	const { user } = useAuth();
 
 	// Configure DnD sensors
 	const sensors = useSensors(
@@ -59,7 +64,101 @@ export default function BoardPage() {
 		}
 	}, [boardId, toast]);
 
-	// Handler for list operations
+	// WebSocket setup
+	const { sendMessage, isConnected } = useWebSocket({
+		cardId: null,
+		boardId: Number(boardId),
+		onMessage: (message) => {
+			if ('boardId' in message) {
+				handleBoardUpdate(message as BoardRealTimeUpdate);
+			} else {
+				handleCardUpdate(message as WebSocketMessage);
+			}
+		},
+	});
+
+	// Real-time update handlers
+	const handleBoardUpdate = useCallback(
+		(update: BoardRealTimeUpdate) => {
+			// Don't process our own messages
+			if (update.data.user_id === user?.id) return;
+
+			if (update.type === 'list') {
+				setBoard((currentBoard) => {
+					if (!currentBoard) return currentBoard;
+
+					switch (update.action) {
+						case 'created':
+							return {
+								...currentBoard,
+								lists: [
+									...(currentBoard.lists || []),
+									{
+										...(update.data as unknown as List),
+										created_at: new Date().toISOString(),
+										updated_at: new Date().toISOString(),
+										position: currentBoard.lists?.length || 0,
+									},
+								],
+							};
+
+						case 'updated':
+							return {
+								...currentBoard,
+								lists:
+									currentBoard.lists?.map((list) =>
+										list.id === update.data.id
+											? { ...list, ...update.data }
+											: list
+									) || [],
+							};
+
+						case 'deleted':
+							return {
+								...currentBoard,
+								lists:
+									currentBoard.lists?.filter(
+										(list) => list.id !== update.data.id
+									) || [],
+							};
+
+						default:
+							return currentBoard;
+					}
+				});
+			}
+		},
+		[user?.id]
+	);
+
+	const handleCardUpdate = useCallback(
+		(message: WebSocketMessage) => {
+			// Handle card-level updates if needed
+			console.log('Card update received:', message);
+			loadBoard();
+		},
+		[loadBoard]
+	);
+
+	// Optimistic update handler
+	const handleOptimisticListUpdate = useCallback(
+		(listId: number, update: Partial<List>) => {
+			setBoard((currentBoard) => {
+				if (!currentBoard) return currentBoard;
+
+				return {
+					...currentBoard,
+					lists:
+						currentBoard.lists?.map((list) =>
+							list.id === listId ? { ...list, ...update } : list
+						) || [],
+				};
+			});
+		},
+		[]
+	);
+
+	// List operation handlers
 	const handleListOperation = useCallback(async () => {
 		setLoading(true);
 		await loadBoard();
@@ -123,9 +222,34 @@ export default function BoardPage() {
 		setActiveId(null);
 	};
 
+	// Initial load and cleanup
 	useEffect(() => {
 		loadBoard();
-	}, [loadBoard]);
+
+		return () => {
+			if (isConnected && user) {
+				sendMessage({
+					type: 'board',
+					action: 'leave',
+					boardId: Number(boardId),
+					data: {
+						user_id: user.id,
+					},
+				} as unknown as BoardRealTimeUpdate);
+			}
+		};
+	}, [loadBoard, isConnected, sendMessage, boardId, user]);
+
+	// Connection status handling
+	useEffect(() => {
+		if (!isConnected) {
+			toast({
+				title: 'Connection Lost',
+				description: 'Real-time updates may be delayed. Trying to reconnect...',
+				variant: 'destructive',
+			});
+		}
+	}, [isConnected, toast]);
 
 	if (loading) return <Loading />;
 	if (!board) return <div>Board not found</div>;
@@ -142,7 +266,25 @@ export default function BoardPage() {
 				onUpdate={handleListOperation}
 				onListEdit={async (listId: number, newTitle: string) => {
 					try {
+						// Optimistic update
+						handleOptimisticListUpdate(listId, { title: newTitle });
+
 						await listApi.updateList(listId, { title: newTitle });
+
+						if (isConnected && user) {
+							sendMessage({
+								type: 'list',
+								action: 'updated',
+								boardId: Number(boardId),
+								data: {
+									id: listId,
+									title: newTitle,
+									board_id: Number(boardId),
+									user_id: user.id,
+								},
+							} as BoardRealTimeUpdate);
+						}
+
 						await handleListOperation();
 					} catch (error) {
 						console.error('Failed to update list:', error);
@@ -151,11 +293,27 @@ export default function BoardPage() {
 							description: 'Failed to update list title',
 							variant: 'destructive',
 						});
+						// Revert optimistic update on error
+						loadBoard();
 					}
 				}}
 				onListDelete={async (listId: number) => {
 					try {
 						await listApi.deleteList(listId);
+
+						if (isConnected && user) {
+							sendMessage({
+								type: 'list',
+								action: 'deleted',
+								boardId: Number(boardId),
+								data: {
+									id: listId,
+									board_id: Number(boardId),
+									user_id: user.id,
+								},
+							} as BoardRealTimeUpdate);
+						}
+
 						await handleListOperation();
 					} catch (error) {
 						console.error('Failed to delete list:', error);

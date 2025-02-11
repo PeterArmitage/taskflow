@@ -2,31 +2,23 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './useAuth';
 import { WebSocketMessage } from '@/app/types/websocket';
+import { BoardRealTimeUpdate } from '@/app/types/real-time-updates';
 
+// Extending the props to handle both card and board connections
 interface UseWebSocketProps {
-	cardId: number;
-	onMessage: (message: WebSocketMessage) => void;
+	cardId: number | null;
+	boardId: number;
+	onMessage: (message: WebSocketMessage | BoardRealTimeUpdate) => void;
 }
 
 const MAX_RECONNECT_ATTEMPTS = 3;
-const RECONNECT_DELAY = 5000; // 5 seconds
+const RECONNECT_DELAY = 5000;
 
-// Helper function to determine the correct WebSocket URL based on environment
-const getWebSocketUrl = () => {
-	// First check for environment variable
-	const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
-	if (wsUrl) return wsUrl;
-
-	// If no environment variable, auto-detect based on current protocol
-	const isSecure = window.location.protocol === 'https:';
-	const host =
-		window.location.hostname === 'localhost'
-			? 'localhost:8000'
-			: window.location.host;
-	return `${isSecure ? 'wss' : 'ws'}://${host}`;
-};
-
-export function useWebSocket({ cardId, onMessage }: UseWebSocketProps) {
+export function useWebSocket({
+	cardId,
+	boardId,
+	onMessage,
+}: UseWebSocketProps) {
 	const [isConnected, setIsConnected] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
 	const wsRef = useRef<WebSocket | null>(null);
@@ -34,15 +26,39 @@ export function useWebSocket({ cardId, onMessage }: UseWebSocketProps) {
 	const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
 	const { getToken } = useAuth();
 
+	// Keep reference to latest onMessage callback
 	const onMessageRef = useRef(onMessage);
 	onMessageRef.current = onMessage;
 
+	const getWebSocketUrl = useCallback(() => {
+		const baseUrl =
+			process.env.NEXT_PUBLIC_WS_URL ||
+			`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${
+				window.location.hostname === 'localhost'
+					? 'localhost:8000'
+					: window.location.host
+			}`;
+
+		const token = getToken();
+		if (!token) throw new Error('No authentication token available');
+
+		const cleanToken = token.replace('Bearer ', '');
+		const encodedToken = encodeURIComponent(cleanToken);
+
+		// Determine endpoint based on whether we're connecting to a card or board
+		const endpoint = cardId ? `/ws/cards/${cardId}` : `/ws/boards/${boardId}`;
+
+		return `${baseUrl}${endpoint}?token=${encodedToken}`;
+	}, [cardId, boardId, getToken]);
+
 	const connect = useCallback(() => {
-		if (wsRef.current?.readyState === WebSocket.OPEN) {
-			console.log('WebSocket already connected');
-			return;
-		}
 		try {
+			// Prevent duplicate connections
+			if (wsRef.current?.readyState === WebSocket.OPEN) {
+				console.log('WebSocket already connected');
+				return;
+			}
+
 			// Check reconnection limit
 			if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
 				setError(
@@ -53,44 +69,33 @@ export function useWebSocket({ cardId, onMessage }: UseWebSocketProps) {
 				return;
 			}
 
-			// Clean up existing connection if any
+			// Clean up existing connection
 			if (wsRef.current) {
 				wsRef.current.close();
 				wsRef.current = null;
 			}
 
-			// Get and verify authentication token
-			const token = getToken();
-			if (!token) {
-				throw new Error('No authentication token available');
-			}
-
-			// Construct WebSocket URL with proper protocol
-			const baseUrl = getWebSocketUrl();
-			// Remove 'Bearer ' prefix if present in token
-			const cleanToken = token.replace('Bearer ', '');
-			const encodedToken = encodeURIComponent(cleanToken);
-			const fullUrl = `${baseUrl}/ws/cards/${cardId}?token=${encodedToken}`;
-
+			const fullUrl = getWebSocketUrl();
 			console.log(
-				`Attempting WebSocket connection (${reconnectAttempts.current + 1}/${MAX_RECONNECT_ATTEMPTS}):`,
-				fullUrl
+				`Attempting WebSocket connection (${reconnectAttempts.current + 1}/${MAX_RECONNECT_ATTEMPTS})`
 			);
 
 			const ws = new WebSocket(fullUrl);
 
 			ws.onopen = () => {
-				console.log(`WebSocket connected successfully to card ${cardId}`);
+				console.log(
+					`WebSocket connected successfully to ${cardId ? 'card' : 'board'}`
+				);
 				setIsConnected(true);
 				setError(null);
 				reconnectAttempts.current = 0;
 
-				// Send initial ping to verify connection is working
+				// Send initial health check
 				ws.send(
 					JSON.stringify({
 						type: 'ping',
 						action: 'health_check',
-						cardId,
+						[cardId ? 'cardId' : 'boardId']: cardId || boardId,
 						data: { timestamp: new Date().toISOString() },
 					})
 				);
@@ -100,21 +105,26 @@ export function useWebSocket({ cardId, onMessage }: UseWebSocketProps) {
 				try {
 					const data = JSON.parse(event.data);
 					console.log('Received WebSocket message:', data);
-					onMessageRef.current(data); // Use the ref here
+					onMessageRef.current(data);
 				} catch (err) {
 					console.error('Failed to parse WebSocket message:', err);
 				}
 			};
 
 			ws.onerror = (event) => {
-				console.error('WebSocket error details:', {
+				console.error('WebSocket error:', {
 					readyState: ws.readyState,
 					url: fullUrl,
 					error: event,
 				});
+
+				if (wsRef.current?.readyState !== WebSocket.CLOSED) {
+					reconnectAttempts.current += 1;
+				}
+
 				setError(
 					new Error(
-						`WebSocket connection error (Attempt ${reconnectAttempts.current}/${MAX_RECONNECT_ATTEMPTS})`
+						`Connection error (Attempt ${reconnectAttempts.current}/${MAX_RECONNECT_ATTEMPTS})`
 					)
 				);
 				setIsConnected(false);
@@ -124,19 +134,23 @@ export function useWebSocket({ cardId, onMessage }: UseWebSocketProps) {
 				console.log(`WebSocket closed with code ${event.code}:`, event.reason);
 				setIsConnected(false);
 
-				// Handle specific close codes
-				if (event.code === 1006) {
-					console.error(
-						'WebSocket connection failed abnormally. Check token and server.'
-					);
+				// Don't reconnect on normal closure
+				if (event.code === 1000 || event.code === 1001) {
+					console.log('WebSocket closed normally');
+					return;
 				}
 
-				// Reconnect only for non-normal closures
-				if (event.code !== 1000) {
-					setTimeout(() => {
-						reconnectAttempts.current += 1;
-						connect();
-					}, 5000);
+				// Clear existing reconnection timeout
+				if (reconnectTimeoutRef.current) {
+					clearTimeout(reconnectTimeoutRef.current);
+				}
+
+				// Schedule reconnection if under max attempts
+				if (reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
+					console.log(
+						`Scheduling reconnection in ${RECONNECT_DELAY / 1000} seconds...`
+					);
+					reconnectTimeoutRef.current = setTimeout(connect, RECONNECT_DELAY);
 				}
 			};
 
@@ -150,27 +164,30 @@ export function useWebSocket({ cardId, onMessage }: UseWebSocketProps) {
 			setError(error);
 			setIsConnected(false);
 
-			// Attempt reconnection on connection error
 			if (reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
 				reconnectTimeoutRef.current = setTimeout(connect, RECONNECT_DELAY);
 			}
 		}
-	}, [cardId, getToken]);
+	}, [getWebSocketUrl, boardId, cardId]);
 
-	const sendMessage = useCallback((message: WebSocketMessage) => {
-		if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-			console.warn('WebSocket not connected. Message not sent:', message);
-			return;
-		}
+	// Generic send message function that works with both message types
+	const sendMessage = useCallback(
+		(message: WebSocketMessage | BoardRealTimeUpdate) => {
+			if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+				console.warn('WebSocket not connected. Message not sent:', message);
+				return;
+			}
 
-		try {
-			const messageString = JSON.stringify(message);
-			console.log('Sending WebSocket message:', message);
-			wsRef.current.send(messageString);
-		} catch (err) {
-			console.error('Failed to send message:', err);
-		}
-	}, []);
+			try {
+				const messageString = JSON.stringify(message);
+				console.log('Sending WebSocket message:', message);
+				wsRef.current.send(messageString);
+			} catch (err) {
+				console.error('Failed to send message:', err);
+			}
+		},
+		[]
+	);
 
 	useEffect(() => {
 		connect();
@@ -185,7 +202,7 @@ export function useWebSocket({ cardId, onMessage }: UseWebSocketProps) {
 				clearTimeout(reconnectTimeoutRef.current);
 			}
 		};
-	}, [cardId, getToken, connect]);
+	}, [connect]);
 
 	const reset = useCallback(() => {
 		reconnectAttempts.current = 0;

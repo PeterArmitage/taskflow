@@ -47,6 +47,7 @@ interface BoardListProps {
 	selectedCardId?: string | null;
 	onCardFocus?: (cardId: string | null) => void;
 	onListFocus?: (listId: string | null) => void;
+	renderCard: (card: Card) => React.ReactNode;
 }
 
 interface EditTitleDialogProps {
@@ -129,6 +130,7 @@ export function BoardList({
 	onListEdit,
 	isActive = false,
 	className,
+	renderCard,
 }: BoardListProps) {
 	const [showCreateCard, setShowCreateCard] = useState(false);
 	const [showEditDialog, setShowEditDialog] = useState(false);

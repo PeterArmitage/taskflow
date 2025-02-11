@@ -18,10 +18,11 @@ import { CommentItem } from './comment-item';
 import { useWebSocket } from '@/app/hooks/use-websocket';
 import { motion } from 'framer-motion';
 import {
-	DeleteData,
 	isCommentData,
 	isDeleteData,
 	isTypingData,
+	WebSocketDeleteData,
+	WebSocketTypingData,
 } from '@/app/types/websocket';
 
 interface CommentsProps {
@@ -50,6 +51,7 @@ export function Comments({
 	const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
 	const { sendMessage } = useWebSocket({
+		boardId: cardId,
 		cardId,
 		onMessage: (message) => {
 			if (message.type === 'comment') {
@@ -76,12 +78,10 @@ export function Comments({
 						}
 						break;
 					case 'deleted':
-						if (
-							isDeleteData(message.data) &&
-							message.data.user_id !== user?.id
-						) {
+						if (isDeleteData(message.data)) {
+							const deleteData = message.data as WebSocketDeleteData;
 							const filteredComments = comments.filter(
-								(comment) => comment.id !== (message.data as DeleteData).id
+								(comment) => comment.id !== deleteData.id
 							);
 							onUpdate(filteredComments);
 						}
@@ -131,7 +131,11 @@ export function Comments({
 				type: 'comment',
 				action: 'typing_stop',
 				cardId,
-				data: { user_id: user.id },
+				data: {
+					user_id: user.id,
+					username: user.username,
+					card_id: cardId,
+				} as WebSocketTypingData,
 			});
 		}, 2000);
 	};
